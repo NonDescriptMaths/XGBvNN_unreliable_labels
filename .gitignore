@@ -12,3 +12,8 @@ data/archive/Variant IV.csv
 
 data/archive/Variant V.csv
 
+#Using this file to define job for SLURM, don't want it on github
+compute_spec.sh 
+# Dont want to upload virtual environment
+./venv
+
