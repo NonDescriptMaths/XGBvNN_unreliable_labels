@@ -1,0 +1,14 @@
+#Ignore raw data files
+
+data/archive/Base.csv
+
+data/archive/Variant I.csv
+
+data/archive/Variant II.csv
+
+data/archive/Variant III.csv
+
+data/archive/Variant IV.csv
+
+data/archive/Variant V.csv
+
