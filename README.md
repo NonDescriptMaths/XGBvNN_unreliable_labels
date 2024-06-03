@@ -14,3 +14,4 @@ These are important epic cool links
     - Extract `.zip` to `/data`
     - Directory should look like `data/archive/` `Base.csv`, `Variant I.csv`, `Variant II.csv` etc.
  - Then to preprocess the data and generate train/validation/test sets, `cd` into `src/` and run `python preprocess.py`. (Or use the functions inside `preprocess.py` in other python scripts if you want.)
+    - This will create the files `train.csv', `validate.csv', and `test.csv' inside the folder `data'.
