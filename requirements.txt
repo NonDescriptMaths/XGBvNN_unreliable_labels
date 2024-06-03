@@ -3,3 +3,5 @@ xgboost
 jax
 pandas
 datasets
+optax
+scikit-learn

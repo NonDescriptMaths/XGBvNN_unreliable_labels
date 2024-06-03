@@ -1,13 +1,11 @@
 from functools import partial
-from xgboost.sklearn import XGBRegressor
+from xgboost.sklearn import XGBClassifier
 import numpy as np
 import jax
 import jax.numpy as jnp
 from typing import Callable
+from optax.losses import sigmoid_binary_cross_entropy
 
-def jax_sle_loss(y_true: np.ndarray, y_pred: np.ndarray):
-    """Calculate the Squared Log Error loss."""
-    return (1/2 * (jnp.log1p(y_pred) - jnp.log1p(y_true))**2)
 
 def hvp(f, inputs, vectors):
     """Hessian-vector product."""
@@ -29,6 +27,6 @@ def jax_autodiff_grad_hess(
     return grad, hess
 
 # Create xgb model
-def get_xgb():
-    jax_objective = jax.jit(partial(jax_autodiff_grad_hess, jax_sle_loss))
-    return XGBRegressor(objective=jax_objective, n_estimators=100)
+def get_xgb(lr=0.1, loss_function: Callable[[np.ndarray, np.ndarray], np.ndarray] = sigmoid_binary_cross_entropy):
+    jax_objective = jax.jit(partial(jax_autodiff_grad_hess, loss_function))
+    return XGBClassifier(objective=jax_objective, n_estimators=100, max_depth=2, learning_rate=lr)
