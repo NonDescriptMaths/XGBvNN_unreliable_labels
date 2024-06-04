@@ -16,5 +16,6 @@ data/archive/Variant V.csv
 compute_spec.sh 
 # Dont want to upload virtual environment
 ./venv
+venv/
 # Dont want to upload data
 /data

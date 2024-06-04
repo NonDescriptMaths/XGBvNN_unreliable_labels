@@ -53,7 +53,7 @@ def preprocess_data(df, log_scaling=True, drop_highly_correlated_features=True):
     return df
 
 
-def remove_labels(df, human_labelled_proportion, human_labelled_positive_proportion):
+def remove_labels(df, labelled_proportion, labelled_positive_proportion):
     '''
     Remove some labels from the dataset (replace with np.nan).
 
@@ -61,39 +61,89 @@ def remove_labels(df, human_labelled_proportion, human_labelled_positive_proport
     human_labelled_proportion: num human labelled samples/num all samples
     human_labelled_positive_proportion: num human labelled positive samples/num all human labelled samples
     '''
-    true_positives = df['fraud_bool'] == 1
-    true_negatives = df['fraud_bool'] == 0
 
-    # remove labels from true positives
-    true_positives_to_remove = df[true_positives].sample(len(true_positives) - int(human_labelled_positive_proportion*human_labelled_proportion * len(true_positives)))
-    true_negatives_to_remove = true_negatives.sample(len(true_negatives) - int((1-human_labelled_positive_proportion)*human_labelled_proportion * len(true_negatives)))
+    assert labelled_proportion >= 0 and labelled_proportion <= 1
+    assert labelled_positive_proportion >= 0 and labelled_positive_proportion <= 1
+
+    # add a column to the dataframe that is the fraud_bool column but with the labels removed
+    df["fraud_masked"] = df["fraud_bool"]
+
+    tp_mask: pd.Series = df['fraud_bool'] == 1
+    tn_mask: pd.Series = df['fraud_bool'] == 0
+
+    tp_subdf: pd.DataFrame = df[tp_mask]
+    tn_subdf: pd.DataFrame = df[tn_mask]
     
-    # remove fraud_bool for entries indexed by true_positives_to_remove or true_negatives_to_kepp (set to np.nan)
-    df.loc[true_positives_to_remove] = np.nan 
-    df.loc[true_negatives_to_remove, 'fraud_bool'] = np.nan
+    N = len(df)
+    alpha = sum(tp_mask)/N
+    beta = labelled_proportion
+    gamma = labelled_positive_proportion
+
+    print(N, alpha, beta, gamma)
+
+    a = beta*gamma*N
+    b = beta*(1-gamma)*N
+    c = (alpha - beta*gamma)*N
+    d = (1 - alpha - beta + beta*gamma)*N
+
+    a = int(a)
+    b = int(b)
+    c = int(c)
+    d = int(d)
+    print(a, b, c, d)
+    assert a >= 0 and b >= 0 and c >= 0 and d >= 0
+
+    # account for rounding errors
+    if a + b + c + d != N:
+        diff = N - (a + b + c + d)
+        d = d + diff
+
+    assert a + b + c + d == N
+
+    # select a labels from true positives
+    a_idxs = np.random.choice(tp_subdf.index, a, replace=False)
+    # split true positives into a and c
+    a_subdf: pd.DataFrame = tp_subdf.loc[a_idxs]
+    c_subdf: pd.DataFrame = tp_subdf.drop(index=a_idxs)
+
+    # select b labels from true negatives
+    b_idxs = np.random.choice(tn_subdf.index, b, replace=False)
+    # split true negatives into b and d
+    b_subdf: pd.DataFrame = tn_subdf.loc[b_idxs]
+    d_subdf: pd.DataFrame = tn_subdf.drop(index=b_idxs)
+
+    # remove labels from c_subdf and d_subdf
+    c_subdf['fraud_masked'] = np.nan
+    d_subdf['fraud_masked'] = np.nan
+
+    # concatenate a_subdf, b_subdf, c_subdf, d_subdf
+    df = pd.concat([a_subdf, b_subdf, c_subdf, d_subdf]).sort_index()
+
+    assert len(df) == N
+    assert df.index.is_unique
 
     return df
 
-
 if __name__ == '__main__':
     # Load the data
+    print('Loading data...')
     df = pd.read_csv('../data/archive/Base.csv')
 
     # Preprocess the data
+    print('Preprocessing features...')
     df = preprocess_data(df, log_scaling=True, drop_highly_correlated_features=True)
 
     # Remove some labels
-    human_labelled_proportion = 0.01,
-    human_labelled_positive_proportion = 0.4
+    labelled_proportion = 0.01
+    labelled_positive_proportion = 0.4
 
-    # put back in when working correctly
-    # df = remove_labels(df,
-    #                    human_labelled_proportion=human_labelled_positive_proportion,
-    #                    human_labelled_positive_proportion=human_labelled_positive_proportion) 
+    print('Removing labels...')
+    df = remove_labels(df,
+                       labelled_proportion=labelled_proportion,
+                       labelled_positive_proportion=labelled_positive_proportion) 
     
-    # breakpoint()
-
     # Split the data
+    print('Splitting data...')
     train_test_split(df)
 
     print('Data preprocessing done.')
