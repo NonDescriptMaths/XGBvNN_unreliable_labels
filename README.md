@@ -6,7 +6,8 @@ A githb repo for a two week project unreliable labels in classifiers
 These are important epic cool links
 + [Kaggle Dataset](https://www.kaggle.com/datasets/sgpjesus/bank-account-fraud-dataset-neurips-2022/data)
 + [Gradient Boosted Fraud Detection on Data](https://www.kaggle.com/code/dskswu/frauddetectionsystem)
-+ [Nyan Cat 100 Hours](https://www.youtube.com/watch?v=9J62hGda9BQ&pp=ygUSbnlhbiBjYXQgMTAwIGhvdXJz) 
++ [Nyan Cat 100 Hours](https://www.youtube.com/watch?v=9J62hGda9BQ&pp=ygUSbnlhbiBjYXQgMTAwIGhvdXJz)
++ [Lilian's blog - Active Learning](https://lilianweng.github.io/posts/2022-02-20-active-learning/)
 
 # Bookkeeping
  - Setting up data in a directory, `.csv` files are currently in `.gitignore` but we can change if need
