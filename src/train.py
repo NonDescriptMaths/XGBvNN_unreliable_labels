@@ -9,6 +9,10 @@ def train(model, X, y, num_epochs=10, batch_size=512):
     y = y.to_numpy()
     ds = Dataset.from_dict({"X": X, "y": y})
     ds = ds.with_format("jax")  
+
+    # do initial training
+    # model.fit(X[:10], y[:10])  # Warmup
+
     # Begin Training!
     for epoch in range(num_epochs):
         print(f"Epoch {epoch}")
@@ -17,6 +21,11 @@ def train(model, X, y, num_epochs=10, batch_size=512):
             print(f"Batch {batch_num}")
             X_train, y_train = batch['X'], batch['y']
             model.fit(X_train, y_train)
+
+            #if iteration % 10 == 0:
+            #     model.fit()
+            # else: 
+            #     model.update()
 
 # If script is run directly, we will run a training trial
 if __name__ == '__main__':
