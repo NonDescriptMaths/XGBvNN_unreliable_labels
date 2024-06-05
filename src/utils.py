@@ -7,9 +7,14 @@ def get_data():
     
     return train, test, validate
 
-def get_X_y(df, true_labels=False):
+def get_X_y(df, true_labels=False, prop=0.5):
     y = df['fraud_bool' if true_labels else 'fraud_masked']
     X = df.drop(['fraud_bool', 'fraud_masked'], axis=1)
+
+    if prop < 1:
+        X = X.sample(frac=prop)
+        y = y.loc[X.index]
+        
     return X, y
 
 def get_X_y_labelled(df):
