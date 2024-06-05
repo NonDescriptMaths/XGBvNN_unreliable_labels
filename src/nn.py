@@ -7,6 +7,8 @@ import optax
 from optax import adam, sgd
 from optax.losses import sigmoid_binary_cross_entropy
 from typing import Sequence
+from sklearn.metrics import roc_auc_score, accuracy_score
+
 
 losses_str2fn = {
     'cross_entropy': lambda *args: sigmoid_binary_cross_entropy(*args).mean()
@@ -38,13 +40,13 @@ class MLP(nn.Module):
 def train_step(state, X_batch, y_batch):
 
     def loss(params):
-        logits = state.apply_fn(params, X_batch)
+        logits = state.apply_fn(params, X_batch).flatten()
 
         # return loss_fn(logits, y_batch)
-        return jnp.mean(sigmoid_binary_cross_entropy(logits, y_batch))
+        return jnp.mean(sigmoid_binary_cross_entropy(logits, y_batch)), logits
     
-    loss_grad_fn = jax.value_and_grad(loss)
-    loss_val, grads = loss_grad_fn(state.params)
+    loss_grad_fn = jax.value_and_grad(loss, has_aux=True)
+    (loss_val, logits), grads = loss_grad_fn(state.params)
 
     state = state.apply_gradients(grads=grads)
 
@@ -53,16 +55,18 @@ def train_step(state, X_batch, y_batch):
 
     # print(loss_val)
 
-    return state
+    return state, loss_val, logits
 
 @jax.jit
 def eval_step(state, X_batch, y_batch):
-    loss_val = sigmoid_binary_cross_entropy(state.apply_fn(state.params, X_batch), y_batch)
+    logits = state.apply_fn(state.params, X_batch).flatten()
+    loss_val = sigmoid_binary_cross_entropy(logits, y_batch)
 
-    return loss_val
+    return loss_val, logits
+
 
 class NNWrapper:
-    def __init__(self, lr=0.1, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, update_ratio=0.5, num_update_epochs=1, MLP_shape=[51,128,128,1]):
+    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, update_ratio=0.5, num_update_epochs=1, MLP_shape=[51,128,128,1]):
         '''
         lr: learning rate
         opt: optimizer
@@ -89,8 +93,19 @@ class NNWrapper:
 
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=self.params, tx=self.opt)
 
-        self.eval = None
-    
+        self.metrics = {'loss': {'training': [], 'validation': []},
+                        'auc' : {'training': [], 'validation': []},
+                        'accuracy' : {'training': [], 'validation': []},
+                        'tpr' : {'training': [], 'validation': []},}
+        
+    def update_metrics(self, loss, logits, y, set):
+        self.metrics['loss'][set].append(loss)
+
+        y_pred = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
+        # self.metrics['auc'][set].append(roc_auc_score(y, y_pred))
+        self.metrics['accuracy'][set].append(accuracy_score(y, y_pred))
+        self.metrics['tpr'][set].append(y_pred[y == 1].mean())
+
     def one_epoch(self, X, y):
         for i in range(0, X.shape[0], self.batch_size):
             X_batch = X[i:i+self.batch_size]
@@ -98,14 +113,16 @@ class NNWrapper:
 
             # loss_val, grads = self.loss_grad_fn(X_batch, y_batch)
 
-            self.state = train_step(self.state, X_batch, y_batch)
+            self.state, loss_val, logits = train_step(self.state, X_batch, y_batch)
+
+            self.update_metrics(loss_val, logits, y_batch, 'training')
 
     def fit(self, X, y, eval_metric="logloss", eval_set=None):
         for _ in range(self.num_epochs):
             self.one_epoch(X, y)
 
         if eval_set is not None:
-            self.evals = self.validation_loss(eval_metric, eval_set)
+            self.validation(eval_metric, eval_set)
 
     def update(self, X_train, y_train, eval_metric, eval_set, X_prev = None, y_prev = None):
         if X_prev is not None or y_prev is not None:
@@ -128,32 +145,41 @@ class NNWrapper:
             self.one_epoch(X, y)
 
         if eval_set is not None:
-            self.evals = self.validation_loss(eval_metric, eval_set)
+            self.validation(eval_metric, eval_set)
 
     def predict(self, X_test):
         return self.model.apply(self.params, X_test)
     
-    def validation_loss(self, eval_metric, eval_set):
+    def validation(self, eval_metric, eval_set):
         X_val, y_val = eval_set[0]  # TODO: check why eval_set is a single tuple inside a list
         
-        loss_val = 0
+        loss_val = []
         for i in range(0, X_val.shape[0], self.batch_size):
             X_batch = X_val[i:i+self.batch_size]
             y_batch = y_val[i:i+self.batch_size]
 
-            loss_val += eval_step(self.state, X_batch, y_batch).sum()/X_val.shape[0]
+            loss, logits = eval_step(self.state, X_batch, y_batch)
+            self.update_metrics(loss.mean(), logits, y_batch, 'validation')
 
-        loss_val /= (i+1)
+            loss_val.append(loss)
 
+        # breakpoint()
+
+        loss_val = jnp.concat(loss_val, axis=0).mean()
         if eval_metric == 'logloss':
             loss_val = jnp.log(loss_val)
 
         return loss_val
     
+    def get_metrics(self, type='loss', set='validation', last_only=False):
+        metric = self.metrics[type][set]
+        if last_only:
+            return metric[-1]
+        return metric
     
     def evals_result(self):
-        return self.evals
-
+        return self.get_metrics(type='loss', set='validation', last_only=True)
+    
 if __name__ == '__main__':
     # from naive_data import naive_get_data
     # X, y, X_test, y_test = naive_get_data()
@@ -192,5 +218,22 @@ if __name__ == '__main__':
     print(results)
 
     import matplotlib.pyplot as plt
-    plt.plot(results, label='train')
-    plt.savefig('../plots/train.png')
+    fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+    ax[0].plot(model.get_metrics(type='loss', set='training'), label='Training')
+    ax[0].plot(model.get_metrics(type='loss', set='validation'), label='Validation')
+    ax[0].set_title('Loss')
+    ax[0].legend()
+
+    ax[1].plot(model.get_metrics(type='accuracy', set='training'), label='Training')
+    ax[1].plot(model.get_metrics(type='accuracy', set='validation'), label='Validation')
+    ax[1].set_title('Accuracy')
+    ax[1].legend()
+
+    ax[2].plot(model.get_metrics(type='tpr', set='training'), label='Training')
+    ax[2].plot(model.get_metrics(type='tpr', set='validation'), label='Validation')
+    ax[2].set_title('TPR')
+    ax[2].legend()
+
+    plt.savefig('../plots/nn_metrics.png')
+
+    breakpoint()
