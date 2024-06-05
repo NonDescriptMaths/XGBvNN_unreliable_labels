@@ -16,7 +16,10 @@ def naive_get_data(drop_portion_of_labels=0.9, reduce_size=0.2):
     # Split data into features and labels
     y = card_df['fraud_bool']
     X = card_df.drop('fraud_bool', axis=1)
-    return X, y
+    # Split data into training and testing sets
+    from sklearn.model_selection import train_test_split
+    X, X_test, y, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+    return X, y, X_test, y_test
 
 
 # If script is run directly, we will run a test of the data fetcher
