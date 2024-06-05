@@ -8,9 +8,10 @@ These are important epic cool links
 + [Gradient Boosted Fraud Detection on Data](https://www.kaggle.com/code/dskswu/frauddetectionsystem)
 + [Nyan Cat 100 Hours](https://www.youtube.com/watch?v=9J62hGda9BQ&pp=ygUSbnlhbiBjYXQgMTAwIGhvdXJz)
 + [Lilian's blog - Active Learning](https://lilianweng.github.io/posts/2022-02-20-active-learning/)
-+ [Query strategies using `libact` package](https://libact.readthedocs.io/en/latest/overview.html#querystrategy)
++ [Query strategies - `libact` package](https://libact.readthedocs.io/en/latest/overview.html#querystrategy)
 + [How to install `libact`](https://pypi.org/project/libact/)
-+ [Information density query strategy](https://modal-python.readthedocs.io/en/latest/content/query_strategies/information_density.html)
++ [Query strategies - `scikit-activeml` package](https://scikit-activeml.github.io/scikit-activeml-docs/generated/strategy_overview.html)
++ [Information density query strategy - `modAL` package](https://modal-python.readthedocs.io/en/latest/content/query_strategies/information_density.html)
 
 # Bookkeeping
  - Setting up data in a directory, `.csv` files are currently in `.gitignore` but we can change if need
