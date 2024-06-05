@@ -74,6 +74,49 @@ def shannon_entropy(model, K, unlabelled_data, labelled_data=None):
 
 
 
+def representativeness_rbf(unlabelled_data, sigma):
+    """
+    Computes the representativeness for each sample in the unlabelled data.
+
+    Parameters:
+    - unlabelled_data: The dataset (as a 2D array) of unlabelled samples.
+    - sigma: The scaling parameter for the rbf.
+
+    Returns:
+    - representativeness: A 1D array containing the representativeness score of each sample.
+    """
+    
+    n_samples = unlabelled_data.shape[0]
+    # Initialise vector
+    representativeness = jnp.zeros(n_samples)
+    
+    for i in range(n_samples):
+        euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
+        # Calculate rbf
+        similarities = jnp.exp(-euclidean_dist / sigma)
+        # Calculate representativeness of sample i
+        representativeness[i] = jnp.mean(similarities)
+    
+    return representativeness
+
+
+def representativeness_reciprocal_euclidean(unlabelled_data):
+    
+    n_samples = unlabelled_data.shape[0]
+    # Initialise vector
+    representativeness = jnp.zeros(n_samples)
+    
+    for i in range(n_samples):
+        euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
+        # Calculate euclidean similarity
+        similarities = 1 / euclidean_dist
+        # Calculate representativeness of sample i
+        representativeness[i] = jnp.mean(similarities)
+    
+    return representativeness
+
+
+
 def random(model, K, unlabelled_data, labelled_data=None):
     '''
     model: prediction model
