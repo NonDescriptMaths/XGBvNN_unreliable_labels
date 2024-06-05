@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
-from query import shannon_entropy
+import query
 import numpy as np
 
 # Generate a binary classification dataset with 2-dimensional covariates
-X, y = make_classification(n_samples=200, n_features=2, n_informative=2, n_redundant=0, random_state=1)
+X, y = make_classification(n_samples=200, n_features=2, n_informative=2, n_redundant=0, random_state=1,weights=[0.9,0.1])
 
 # Split the data into labelled and unlabelled
 X_labelled = X[:100]
@@ -19,13 +19,13 @@ model.fit(X_labelled, y_labelled)
 # Define a predict method for the model that returns (x, y, y_hat)
 def predict(data):
     y_hat = model.predict_proba(data)[:, 1]
-    return (data, np.zeros_like(y_hat), y_hat)
+    return (data, y, y_hat)
 
 # Replace the model's predict method with our custom one
 model.predict = predict
 
 # Use the shannon_entropy function with this model and the unlabelled data
-selected_indices = shannon_entropy(model, 50, X)
+selected_indices = query.shannon_entropy(model, 50, X)
 
 # Get the selected samples
 selected_samples = X[selected_indices]

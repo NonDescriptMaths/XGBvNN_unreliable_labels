@@ -1,7 +1,7 @@
 import jax.numpy as jnp
+from skactiveml.pool import UncertaintySampling
 
-
-def ground_truth_cross_entropy(model, K, unlabelled_data, labelled_data=None):
+def cross_entropy(model, K, unlabelled_data, labelled_data=None):
     '''
     --- Ground Truth Cross Entropy Sampling ---
     Returns the top K samples w.r.t the cross entropy of the predictions.
@@ -15,29 +15,16 @@ def ground_truth_cross_entropy(model, K, unlabelled_data, labelled_data=None):
     '''
     predictions = model.predict(unlabelled_data)
     '''
+    ASSUMPTIONS
     predictions: (x,y,y_hat) for 0 <= y_hat <=1
     '''
     # Calculate the cross entropy of the predictions
     p = jnp.clip(predictions[2], 1e-10, 1 - 1e-10)
-    q = jnp.clip(predictions[1], 1e-10, 1 - 1e-10)
-    ce = -p * jnp.log2(q) - (1 - p) * jnp.log2(1 - q)
-    return ce[:K]
-
-def cross_entropy(model, K, unlabelled_data, labelled_data=None):
-    '''
-    model: prediction model
-    K: number of queries to select
-    unlabelled_data: currently unlabelled data
-    labelled_data: currently labelled data (may not be used)
-    '''
-    predictions = model.predict(unlabelled_data)
-
-    ce = predictions.cross_entropy()
-
-    #pick top K samples
-    ce.sort()
-
-    return ce[:K]
+    q_value = jnp.mean(predictions[1])
+    q = jnp.full(len(p),q_value)
+    ce = -q * jnp.log2(p) - (1 - q) * jnp.log2(1 - p)
+    indices = jnp.argsort(-ce)
+    return indices[:K]
 
 def margin(model, K, unlabelled_data, labelled_data=None):
     '''
