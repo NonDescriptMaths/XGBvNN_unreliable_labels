@@ -1,6 +1,28 @@
 import jax.numpy as jnp
 
 
+def ground_truth_cross_entropy(model, K, unlabelled_data, labelled_data=None):
+    '''
+    --- Ground Truth Cross Entropy Sampling ---
+    Returns the top K samples w.r.t the cross entropy of the predictions.
+    Requires knowledge of true distribution, not practical in real-world scenarios.
+    Maybe a good benchmark?
+    -------------------------------------------
+    model: prediction model
+    K: number of queries to select
+    unlabelled_data: currently unlabelled data
+    labelled_data: currently labelled data (may not be used)
+    '''
+    predictions = model.predict(unlabelled_data)
+    '''
+    predictions: (x,y,y_hat) for 0 <= y_hat <=1
+    '''
+    # Calculate the cross entropy of the predictions
+    p = jnp.clip(predictions[2], 1e-10, 1 - 1e-10)
+    q = jnp.clip(predictions[1], 1e-10, 1 - 1e-10)
+    ce = -p * jnp.log2(q) - (1 - p) * jnp.log2(1 - q)
+    return ce[:K]
+
 def cross_entropy(model, K, unlabelled_data, labelled_data=None):
     '''
     model: prediction model
@@ -61,30 +83,9 @@ def shannon_entropy(model, K, unlabelled_data, labelled_data=None):
     indices = jnp.argsort(-entropy)
 
     # Return the top K samples
-    return unlabelled_data[indices[:K]]
+    return indices[:K]
 
 
-def ground_truth_cross_entropy(model, K, unlabelled_data, labelled_data=None):
-    '''
-    --- Ground Truth Cross Entropy Sampling ---
-    Returns the top K samples w.r.t the cross entropy of the predictions.
-    Requires knowledge of true distribution, not practical in real-world scenarios.
-    Maybe a good benchmark?
-    -------------------------------------------
-    model: prediction model
-    K: number of queries to select
-    unlabelled_data: currently unlabelled data
-    labelled_data: currently labelled data (may not be used)
-    '''
-    predictions = model.predict(unlabelled_data)
-    '''
-    predictions: (x,y,y_hat) for 0 <= y_hat <=1
-    '''
-    # Calculate the cross entropy of the predictions
-    p = jnp.clip(predictions[2], 1e-10, 1 - 1e-10)
-    q = jnp.clip(predictions[1], 1e-10, 1 - 1e-10)
-    ce = -p * jnp.log2(q) - (1 - p) * jnp.log2(1 - q)
-    return ce[:K]
 
 def random(model, K, unlabelled_data, labelled_data=None):
     '''

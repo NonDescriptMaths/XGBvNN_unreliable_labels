@@ -25,7 +25,10 @@ def predict(data):
 model.predict = predict
 
 # Use the shannon_entropy function with this model and the unlabelled data
-selected_samples = shannon_entropy(model, 50, X)
+selected_indices = shannon_entropy(model, 50, X)
+
+# Get the selected samples
+selected_samples = X[selected_indices]
 
 # Plot the decision boundary
 plt.figure(figsize=(10, 6))
