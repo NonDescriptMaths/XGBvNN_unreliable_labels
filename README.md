@@ -9,6 +9,7 @@ These are important epic cool links
 + [Nyan Cat 100 Hours](https://www.youtube.com/watch?v=9J62hGda9BQ&pp=ygUSbnlhbiBjYXQgMTAwIGhvdXJz)
 + [Lilian's blog - Active Learning](https://lilianweng.github.io/posts/2022-02-20-active-learning/)
 + [Query strategies using `libact` package](https://libact.readthedocs.io/en/latest/overview.html#querystrategy)
++ [How to install `libact`](https://pypi.org/project/libact/)
 + [Information density query strategy](https://modal-python.readthedocs.io/en/latest/content/query_strategies/information_density.html)
 
 # Bookkeeping
