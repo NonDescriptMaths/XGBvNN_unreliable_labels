@@ -39,11 +39,15 @@ class MLP(nn.Module):
 @jax.jit
 def train_step(state, X_batch, y_batch):
 
+    def upweight_positive_loss(loss_val, factor=1):
+        return jnp.where(y_batch == 1, factor*loss_val, loss_val)
+
     def loss(params):
         logits = state.apply_fn(params, X_batch).flatten()
 
         # return loss_fn(logits, y_batch)
-        return jnp.mean(sigmoid_binary_cross_entropy(logits, y_batch)), logits
+        return jnp.mean(upweight_positive_loss(sigmoid_binary_cross_entropy(logits, y_batch))), logits
+        # return jnp.mean(sigmoid_binary_cross_entropy(logits, y_batch)), logits
     
     loss_grad_fn = jax.value_and_grad(loss, has_aux=True)
     (loss_val, logits), grads = loss_grad_fn(state.params)
@@ -60,7 +64,7 @@ def train_step(state, X_batch, y_batch):
 @jax.jit
 def eval_step(state, X_batch, y_batch):
     logits = state.apply_fn(state.params, X_batch).flatten()
-    loss_val = sigmoid_binary_cross_entropy(logits, y_batch)
+    loss_val = jnp.mean(sigmoid_binary_cross_entropy(logits, y_batch))
 
     return loss_val, logits
 
@@ -95,31 +99,72 @@ class NNWrapper:
 
         self.metrics = {'loss': {'training': [], 'validation': []},
                         'auc' : {'training': [], 'validation': []},
-                        'accuracy' : {'training': [], 'validation': []},
+                        'accuracy': {'training': [], 'validation': []},
                         'tpr' : {'training': [], 'validation': []},}
         
-    def update_metrics(self, loss, logits, y, set):
-        self.metrics['loss'][set].append(loss)
-
+        self.full_metrics = {'loss': {'training': [], 'validation': []},
+                             'auc' : {'training': [], 'validation': []},
+                             'accuracy': {'training': [], 'validation': []},
+                             'tpr' : {'training': [], 'validation': []},}
+        
+    def update_metrics(self, loss, logits, y, set, final_epoch=False):
         y_pred = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
-        # self.metrics['auc'][set].append(roc_auc_score(y, y_pred))
-        self.metrics['accuracy'][set].append(accuracy_score(y, y_pred))
-        self.metrics['tpr'][set].append(y_pred[y == 1].mean())
 
-    def one_epoch(self, X, y):
+        auc = roc_auc_score(y, y_pred)
+        accuracy = accuracy_score(y, y_pred)
+        tpr = y_pred[y == 1].mean()
+        
+        self.full_metrics['loss'][set].append(loss)
+        self.full_metrics['auc'][set].append(auc)
+        self.full_metrics['accuracy'][set].append(accuracy)
+        self.full_metrics['tpr'][set].append(tpr)
+
+        if final_epoch:
+            self.metrics['loss'][set].append(loss)
+            self.metrics['auc'][set].append(auc)
+            self.metrics['accuracy'][set].append(accuracy)
+            self.metrics['tpr'][set].append(tpr)
+                    
+
+
+    def one_epoch(self, X, y, final_epoch=False):
+        logits_collection = []
+        total_loss_val = 0
         for i in range(0, X.shape[0], self.batch_size):
             X_batch = X[i:i+self.batch_size]
             y_batch = y[i:i+self.batch_size]
+
+            # logits = self.model.apply(self.params, X_batch).flatten()
+
+            # make the batch have an equal number of positive and negative samples
+            # if y_batch.sum() > 0:
+            #     pos_idx = np.where(y_batch == 1)[0]
+            #     neg_idx = np.where(y_batch == 0)[0]
+
+            #     if len(pos_idx) > len(neg_idx):
+            #         pos_idx = np.random.choice(pos_idx, len(neg_idx), replace=False)
+            #     elif len(neg_idx) > len(pos_idx):
+            #         neg_idx = np.random.choice(neg_idx, len(pos_idx), replace=False)
+
+            #     idx = np.concatenate((pos_idx, neg_idx))
+            #     X_batch = X_batch[idx, :]
+            #     y_batch = y_batch[idx]
 
             # loss_val, grads = self.loss_grad_fn(X_batch, y_batch)
 
             self.state, loss_val, logits = train_step(self.state, X_batch, y_batch)
 
-            self.update_metrics(loss_val, logits, y_batch, 'training')
+            logits_collection.append(logits)
+            total_loss_val += loss_val*X_batch.shape[0]
+
+        logits = jnp.concatenate(logits_collection, axis=0)
+        total_loss_val /= X.shape[0]
+            
+        self.update_metrics(total_loss_val, logits, y, 'training', final_epoch=final_epoch)
 
     def fit(self, X, y, eval_metric="logloss", eval_set=None):
-        for _ in range(self.num_epochs):
-            self.one_epoch(X, y)
+        for i in range(self.num_epochs):
+            self.one_epoch(X, y, final_epoch=(i == self.num_epochs-1))
 
         if eval_set is not None:
             self.validation(eval_metric, eval_set)
@@ -141,8 +186,8 @@ class NNWrapper:
         X = X[idx, ...]
         y = y[idx]
 
-        for _ in range(self.num_update_epochs):
-            self.one_epoch(X, y)
+        for i in range(self.num_update_epochs):
+            self.one_epoch(X, y, final_epoch=(i == self.num_update_epochs-1))
 
         if eval_set is not None:
             self.validation(eval_metric, eval_set)
@@ -151,34 +196,38 @@ class NNWrapper:
         return self.model.apply(self.params, X_test)
     
     def validation(self, eval_metric, eval_set):
-        X_val, y_val = eval_set[0]  # TODO: check why eval_set is a single tuple inside a list
+        X_val, y_val = eval_set[0]  # TODO: check why eval_set is a single tuple inside a list (to make space for validation AND test sets?)
         
-        loss_val = []
+        logits_collection = []
+        total_loss_val = 0
         for i in range(0, X_val.shape[0], self.batch_size):
             X_batch = X_val[i:i+self.batch_size]
             y_batch = y_val[i:i+self.batch_size]
 
-            loss, logits = eval_step(self.state, X_batch, y_batch)
-            self.update_metrics(loss.mean(), logits, y_batch, 'validation')
+            loss_val, logits = eval_step(self.state, X_batch, y_batch)
 
-            loss_val.append(loss)
+            logits_collection.append(logits)
+            total_loss_val += loss_val*X_batch.shape[0]
 
-        # breakpoint()
+        logits = jnp.concatenate(logits_collection, axis=0)
+        total_loss_val /= X.shape[0]
 
-        loss_val = jnp.concat(loss_val, axis=0).mean()
+        self.update_metrics(total_loss_val, logits, y_val, 'validation', final_epoch=True)
+
+        # return log-loss if specified
         if eval_metric == 'logloss':
-            loss_val = jnp.log(loss_val)
+            total_loss_val = jnp.log(total_loss_val)
 
-        return loss_val
+        return total_loss_val
     
-    def get_metrics(self, type='loss', set='validation', last_only=False):
-        metric = self.metrics[type][set]
-        if last_only:
-            return metric[-1]
-        return metric
+    def get_metrics(self, type='loss', set='validation'):
+        return self.metrics[type][set]
+    
+    def get_full_metrics(self, type='loss', set='validation'):
+        return self.full_metrics[type][set]
     
     def evals_result(self):
-        return self.get_metrics(type='loss', set='validation', last_only=True)
+        return self.get_metrics(type='loss', set='validation')
     
 if __name__ == '__main__':
     # from naive_data import naive_get_data
@@ -188,7 +237,7 @@ if __name__ == '__main__':
 
     FULL_SET = True
     FULL_SET_PROP = 0.3
-    NUM_EPOCHS = 25
+    NUM_EPOCHS = 50
 
 
     train_set, test_set, validate_set = get_data()
@@ -218,7 +267,7 @@ if __name__ == '__main__':
     print(results)
 
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+    fig, ax = plt.subplots(1, 4, figsize=(20, 5))
     ax[0].plot(model.get_metrics(type='loss', set='training'), label='Training')
     ax[0].plot(model.get_metrics(type='loss', set='validation'), label='Validation')
     ax[0].set_title('Loss')
@@ -234,6 +283,11 @@ if __name__ == '__main__':
     ax[2].set_title('TPR')
     ax[2].legend()
 
+    ax[3].plot(model.get_metrics(type='auc', set='training'), label='Training')
+    ax[3].plot(model.get_metrics(type='auc', set='validation'), label='Validation')
+    ax[3].set_title('AUC')
+    ax[3].legend()
+
     plt.savefig('../plots/nn_metrics.png')
 
-    breakpoint()
+    # breakpoint()
