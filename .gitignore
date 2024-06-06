@@ -20,4 +20,4 @@ venv/
 # Dont want to upload data
 /data
 /plots
-
+/src/plots
