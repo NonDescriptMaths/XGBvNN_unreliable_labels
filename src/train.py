@@ -80,5 +80,5 @@ if __name__ == '__main__':
     plt.close()
 
     # Test training
-    # results  =train(model, X, y, X_test, y_test, num_epochs=3)
-    # print(results)
+    results = train(model, X, y, X_test, y_test, num_epochs=3)
+    print(results)
