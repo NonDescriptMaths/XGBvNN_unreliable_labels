@@ -6,3 +6,4 @@ datasets
 optax
 scikit-learn
 matplotlib
+IPython
