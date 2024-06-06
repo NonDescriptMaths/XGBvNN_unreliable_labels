@@ -99,6 +99,22 @@ def representativeness_rbf(unlabelled_data, sigma, beta):
     
     return representativeness
 
+def representativeness_cos(unlabelled_data, beta):
+
+    # Normalise the unlabelled_data
+    norms = jnp.linalg.norm(unlabelled_data, axis=1, keepdims=True)
+    normalised_data = unlabelled_data / norms
+    
+    n_samples = unlabelled_data.shape[0]
+    # Initialise vector
+    representativeness = jnp.zeros(n_samples)
+    # Calculate cosine similarity matrix
+    cosine_similarity_matrix = jnp.dot(normalised_data, normalised_data.T)
+    # Calculate representativeness for sample i
+    for i in range(n_samples):
+        representativeness[i] = (jnp.mean(cosine_similarity_matrix[i]))**beta
+    
+    return representativeness
 
 def representativeness_reciprocal_euclidean(unlabelled_data, beta):
     
