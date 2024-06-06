@@ -1,10 +1,16 @@
 import pandas as pd
+from clean_data import normalize
 
-def get_data():
+def get_data(normalize_data=True):
     train = pd.read_csv('../data/train.csv')
     test = pd.read_csv('../data/test.csv')
     validate = pd.read_csv('../data/validate.csv')
     
+    if normalize:
+        train = normalize(train)
+        test = normalize(test)
+        validate = normalize(validate)
+
     return train, test, validate
 
 def get_X_y(df, true_labels=False, prop=0.5):
