@@ -1,12 +1,12 @@
 import pandas as pd
 from clean_data import normalize
 
-def get_data(normalize_data=True):
+def get_data(normalize_data=False):
     train = pd.read_csv('../data/train.csv')
     test = pd.read_csv('../data/test.csv')
     validate = pd.read_csv('../data/validate.csv')
     
-    if normalize:
+    if normalize_data:
         train = normalize(train)
         test = normalize(test)
         validate = normalize(validate)

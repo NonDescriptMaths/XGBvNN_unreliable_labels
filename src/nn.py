@@ -70,7 +70,7 @@ def eval_step(state, X_batch, y_batch):
 
 
 class NNWrapper:
-    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, update_ratio=0.5, num_update_epochs=1, MLP_shape=[51,128,128,1]):
+    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, update_ratio=0.5, num_update_epochs=10, MLP_shape=[51,128,128,1]):
         '''
         lr: learning rate
         opt: optimizer
@@ -237,16 +237,21 @@ if __name__ == '__main__':
 
     FULL_SET = True
     FULL_SET_PROP = 0.3
-    NUM_EPOCHS = 50
+    NUM_EPOCHS = 10
+    NORMALIZE_DATA = False
 
 
-    train_set, test_set, validate_set = get_data()
+    train_set, test_set, validate_set = get_data(normalize_data=NORMALIZE_DATA)
     if FULL_SET:
         X, y = get_X_y(train_set, true_labels=True, prop=FULL_SET_PROP)
         X_test, y_test = get_X_y(test_set, true_labels=True, prop=FULL_SET_PROP)
     else:
         X, y = get_X_y_labelled(train_set)
         X_test, y_test = get_X_y_labelled(test_set)
+
+    
+    # from naive_data import naive_get_data
+    # X, y, X_test, y_test = naive_get_data()
 
     X = X.to_numpy().astype(np.float32)
     y = y.to_numpy().astype(np.float32)
