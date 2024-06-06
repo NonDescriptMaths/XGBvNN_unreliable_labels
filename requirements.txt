@@ -5,3 +5,4 @@ pandas
 datasets
 optax
 scikit-learn
+matplotlib

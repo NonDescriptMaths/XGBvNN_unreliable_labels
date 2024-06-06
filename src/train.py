@@ -10,8 +10,8 @@ def pretrain(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.nda
     # Begin Training!
     ds.shuffle(seed=0)
     X_train, y_train = ds['X'], ds['y']
-    model.fit(X_train, y_train, eval_metric="logloss", eval_set=[(X_test, y_test)])
-    metrics = model.evals_result()
+    model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)])
+    metrics = model.get_metrics()
     return metrics
 
 # Train model
@@ -34,10 +34,10 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
             
             if (epoch % 10 == 0) and (batch_num == 0):
                 pretrain(model, X_train, y_train, X_test, y_test)
-                metric = model.evals_result()
+                metric = model.get_metrics()
             else: 
-                model.update(X_train, y_train, eval_metric="logloss", eval_set=[(X_test, y_test)])
-                metric = model.evals_result()
+                model.update(X_train, y_train, eval_metric="logloss", eval_set=[(X_train, y_train), (X_test, y_test)])
+                metric = model.get_metrics()
             
             all_metrics.append(metric)
     return all_metrics
@@ -55,6 +55,30 @@ if __name__ == '__main__':
     # Test pretraining
     results = pretrain(model, X, y, X_test, y_test)
     print(results)
+    # Create plots directory if it doesn't exist
+    import os
+    if not os.path.exists('plots'):
+        os.makedirs('plots')
+    # Plot loss
+    import matplotlib.pyplot as plt
+    plt.plot(results['loss']['training'], label='train')
+    plt.plot(results['loss']['validation'], label='validation')
+    plt.legend()
+    plt.savefig('plots/loss.png')
+    plt.close()
+    # Plot AUC
+    plt.plot(results['auc']['training'], label='train')
+    plt.plot(results['auc']['validation'], label='validation')
+    plt.legend()
+    plt.savefig('plots/auc.png')
+    plt.close()
+    # Plot accuracy
+    plt.plot(results['acc']['training'], label='train')
+    plt.plot(results['acc']['validation'], label='validation')
+    plt.legend()
+    plt.savefig('plots/acc.png')
+    plt.close()
+
     # Test training
-    results  =train(model, X, y, X_test, y_test, num_epochs=3)
-    print(results)
+    # results  =train(model, X, y, X_test, y_test, num_epochs=3)
+    # print(results)
