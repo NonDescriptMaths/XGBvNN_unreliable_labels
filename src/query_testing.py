@@ -5,12 +5,11 @@ import query
 import numpy as np
 
 # Generate a binary classification dataset with 2-dimensional covariates
-X, y = make_classification(n_samples=200, n_features=2, n_informative=2, n_redundant=0, random_state=1,weights=[0.9,0.1])
+X, y = make_classification(n_samples=200, n_features=2, n_informative=2, n_redundant=0, random_state=1,weights=[0.6,0.4])
 
 # Split the data into labelled and unlabelled
 X_labelled = X[:100]
 y_labelled = y[:100]
-X_unlabelled = X[100:]
 
 # Train a logistic regression model on the labelled data
 model = LogisticRegression()
@@ -19,13 +18,18 @@ model.fit(X_labelled, y_labelled)
 # Define a predict method for the model that returns (x, y, y_hat)
 def predict(data):
     y_hat = model.predict_proba(data)[:, 1]
-    return (data, y, y_hat)
+    return np.hstack((data, y_hat.reshape(-1, 1)))
 
+predicted_data = predict(X)
+print(predicted_data)
+print(predicted_data[:,0:-1])
+print(predicted_data[:,-1])
+
+repres_RBF = query.representativeness_re(predicted_data[:,0:-1], beta=2)
 # Replace the model's predict method with our custom one
-model.predict = predict
 
 # Use the shannon_entropy function with this model and the unlabelled data
-selected_indices = query.shannon_entropy(model, 50, X)
+selected_indices = query.entrepRBF(10,predicted_data,repres_data=repres_RBF)
 
 # Get the selected samples
 selected_samples = X[selected_indices]

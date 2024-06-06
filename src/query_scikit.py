@@ -67,5 +67,6 @@ for c in range(n_cycles):
     y[query_idx] = y_true[query_idx]
 
 ani = animation.ArtistAnimation(fig, artists, interval=1000, blit=True)
+
 plt.show()
 # %%
