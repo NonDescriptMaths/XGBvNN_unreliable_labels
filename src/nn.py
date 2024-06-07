@@ -39,7 +39,7 @@ class MLP(nn.Module):
 @jax.jit
 def train_step(state, X_batch, y_batch):
 
-    def upweight_positive_loss(loss_val, factor=1):
+    def upweight_positive_loss(loss_val, factor=2):
         return jnp.where(y_batch == 1, factor*loss_val, loss_val)
 
     def loss(params):
@@ -196,7 +196,7 @@ class NNWrapper:
         return self.model.apply(self.params, X_test)
     
     def validation(self, eval_metric, eval_set):
-        X_val, y_val = eval_set[0]  # TODO: check why eval_set is a single tuple inside a list (to make space for validation AND test sets?)
+        X_val, y_val = eval_set[-1]  # TODO: check why eval_set is a single tuple inside a list (to make space for validation AND test sets?)
         
         logits_collection = []
         total_loss_val = 0
@@ -210,7 +210,7 @@ class NNWrapper:
             total_loss_val += loss_val*X_batch.shape[0]
 
         logits = jnp.concatenate(logits_collection, axis=0)
-        total_loss_val /= X.shape[0]
+        total_loss_val /= X_val.shape[0]
 
         self.update_metrics(total_loss_val, logits, y_val, 'validation', final_epoch=True)
 
@@ -235,10 +235,14 @@ if __name__ == '__main__':
     from utils import get_data, get_X_y, get_X_y_labelled
     from train import pretrain, train
 
-    FULL_SET = True
+    FULL_SET = False
     FULL_SET_PROP = 0.3
-    NUM_EPOCHS = 10
-    NORMALIZE_DATA = False
+    NUM_EPOCHS = 50
+    NORMALIZE_DATA = True
+
+    QUERY_METHOD = 'entropy'
+    QUERY_ALPHA = 0.5
+    QUERY_K = 100
 
 
     train_set, test_set, validate_set = get_data(normalize_data=NORMALIZE_DATA)
@@ -261,15 +265,15 @@ if __name__ == '__main__':
     # breakpoint()
 
     model = get_nn()
-    model.fit(X, y)
+    # model.fit(X, y)
 
     # Test pretraining
     # results = pretrain(model, X, y, X_test, y_test)
     # print(results)
 
     # Test training (involves pretraining as well)
-    results = train(model, X, y, X_test, y_test, num_epochs=NUM_EPOCHS)
-    print(results)
+    results = train(model, X, y, X_test, y_test, num_epochs=NUM_EPOCHS, query_method=QUERY_METHOD, query_alpha=QUERY_ALPHA, query_K=QUERY_K)
+    # print(results)
 
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(1, 4, figsize=(20, 5))

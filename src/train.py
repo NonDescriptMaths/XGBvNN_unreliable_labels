@@ -3,6 +3,8 @@ import jax
 import numpy as np
 import xgboost as xgb
 from utils import get_data, get_X_y, get_X_y_labelled
+from query import sampler
+import jax.numpy as jnp
 
 def pretrain(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray):
     ds = Dataset.from_dict({"X": X, "y": y})
@@ -16,9 +18,15 @@ def pretrain(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.nda
     return metrics
 
 # Train model
-def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray, num_epochs=20, batch_size='max'):
-    ds = Dataset.from_dict({"X": X, "y": y})
-    ds = ds.with_format("jax")  
+def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray, num_epochs=20, batch_size='max', query_method='', query_alpha=0.5, query_K=10, query_args={}):
+    # Separate data into labelled and unlabelled
+
+    label_idx = np.where(y != -1)[0]
+
+    ds = Dataset.from_dict({"X": X[label_idx], "y": y[label_idx]})
+    ds = ds.with_format("jax")
+
+    ds_unlabelled = Dataset.from_dict({"X": X[~label_idx], "y": y[~label_idx]})
 
     # Begin Training!
     if batch_size == 'max':
@@ -41,6 +49,23 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
                 metric = model.get_metrics()
             
             all_metrics.append(metric)
+
+        # select some unlabelled data to label
+        if query_method != '':
+            logits = model.predict(ds_unlabelled['X'])
+            predicted_labels = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
+            
+            query_idx = sampler(predicted_labels, method=query_method, K=query_K, alpha=query_alpha, **query_args)
+
+            X_labelled = np.concatenate([X_train, X[query_idx]])
+            y_labelled = np.concatenate([y_train, y[query_idx]])
+            ds = Dataset.from_dict({"X": X_labelled, "y": y_labelled})
+            ds = ds.with_format("jax")
+            ds_unlabelled = Dataset.from_dict({"X": np.delete(X, query_idx, axis=0), "y": np.delete(y, query_idx, axis=0)})
+            # X, y = get_X_y(ds)
+            # X_unlabelled, y_unlabelled = get_X_y(ds_unlabelled)
+
+
     return all_metrics
 
 # If script is run directly, we will run a training trial
