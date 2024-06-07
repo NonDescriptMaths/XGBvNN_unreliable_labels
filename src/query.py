@@ -178,7 +178,8 @@ def sampler(predicted_data,
             method = 'entropy',
             RE_beta = 1,
             RBF_sigma = 0.5,
-            RBF_beta = 1):
+            RBF_beta = 1,
+            debug = False):
     '''
     --- Sampler Function ---
     ------------------------
@@ -195,9 +196,10 @@ def sampler(predicted_data,
             'entrepRBF': Entropy with similarity constraints via RBF kernel
     '''
     # generate a certain amount of fraud cases
-    print("...Sampling...")
-    print("Fraud/Sample ratio:", alpha)
-    print("Method: ", method)
+    if debug:
+        print("...Sampling...")
+        print("Fraud/Sample ratio:", alpha)
+        print("Method: ", method)
     n_fraud = int(K*alpha)
     n_non_fraud = K - n_fraud
     # get the indices of fraud cases
@@ -229,8 +231,9 @@ def sampler(predicted_data,
     else:
         raise ValueError('Method not supported by sampler')
     # print the indices
-    print(f"Fraud indices: \n {fraud_indices_sample}")
-    print(f"Uncertainty indices: \n {indices}")
+    if debug:
+        print(f"Fraud indices: \n {fraud_indices_sample}")
+        print(f"Uncertainty indices: \n {indices}")
 
     # combine and output
     return jnp.concatenate([fraud_indices_sample,indices],axis = 0)
