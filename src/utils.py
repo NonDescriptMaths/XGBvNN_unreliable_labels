@@ -36,3 +36,13 @@ def get_X_y_unlabelled(df):
     y = df['fraud_masked']
     X = df.drop(['fraud_bool', 'fraud_masked'], axis=1)
     return X, y
+
+def check_preprocessed():
+    if not os.path.exists('../data/train.csv'):
+        raise FileNotFoundError("Data not found. Please run preprocess.py to preprocess the data.")
+    elif not os.path.exists('../data/test.csv'):
+        raise FileNotFoundError("Data not found. Please run preprocess.py to preprocess the data.")
+    elif not os.path.exists('../data/validate.csv'):
+        raise FileNotFoundError("Data not found. Please run preprocess.py to preprocess the data.")
+    else:
+        return True

@@ -7,3 +7,4 @@ optax
 scikit-learn
 matplotlib
 IPython
+slune-lib

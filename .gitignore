@@ -19,3 +19,4 @@ venv/
 /data
 /plots
 /src/plots
+/src/results
