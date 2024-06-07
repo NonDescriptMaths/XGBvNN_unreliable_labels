@@ -19,3 +19,5 @@ compute_spec.sh
 venv/
 # Dont want to upload data
 /data
+/plots
+/src/plots
