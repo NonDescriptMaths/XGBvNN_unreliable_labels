@@ -1,3 +1,4 @@
+import jax as jax
 import jax.numpy as jnp
 from skactiveml.pool import UncertaintySampling
 from sklearn.preprocessing import StandardScaler
@@ -31,7 +32,7 @@ def representativeness_rbf(unlabelled_data, sigma, beta):
     for i in range(n_samples):
         euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
         # Calculate rbf
-        similarities = jnp.exp(euclidean_dist / sigma)
+        similarities = jnp.exp(-euclidean_dist / sigma)
         # Calculate representativeness of sample i
         representativeness = representativeness.at[i].set(jnp.mean(similarities)**beta)
     
@@ -102,7 +103,7 @@ def margin(K, predicted_data, labelled_data=None):
     # Return the top K samples
     return indices[:K]
 
-def entropy(model, K, unlabelled_data, labelled_data=None):
+def entropy(K, predicted_data, labelled_data=None):
     '''
     --- Shannon Entropy Sampling ---
     Returns the top K samples w.r.t Shannon entropy, produces equvilent outpt to margin
@@ -112,12 +113,9 @@ def entropy(model, K, unlabelled_data, labelled_data=None):
     unlabelled_data: currently unlabelled data
     labelled_data: currently labelled data (may not be used)
     '''
-    predictions = model.predict(unlabelled_data)
-    '''
-    predictions: (x,y,y_hat) for 0 <= y_hat <=1
-    '''
+    
     # Calculate the entropy of the predictions
-    p = predictions[2]
+    p = predicted_data[:,-1]
     p = jnp.clip(p, 1e-10, 1 - 1e-10)
     entropy = -p * jnp.log2(p) - (1 - p) * jnp.log2(1 - p)
 
@@ -134,10 +132,10 @@ def random(K, predicted_data, labelled_data=None):
     unlabelled_data: currently unlabelled data
     labelled_data: currently labelled data (may not be used)
     '''
+    key = jax.random.PRNGKey(0)  
+    return jax.random.choice(key, len(predicted_data), K, replace=False)
 
-    return jnp.random.choice(len(predicted_data), K, replace=False)
-
-def entrepRE(K,predicted_data,labelled_data,repres_data = []):
+def entrepRE(K,predicted_data,labelled_data = None,repres_data = []):
     '''
     Entropy with similarity constraints
     inputs: 
@@ -177,7 +175,10 @@ def sampler(predicted_data,
             K= 30,
             alpha = 0.5,
             threshold_for_fraud = 0.8,
-            method = 'entropy'):
+            method = 'entropy',
+            RE_beta = 1,
+            RBF_sigma = 0.5,
+            RBF_beta = 1):
     '''
     --- Sampler Function ---
     ------------------------
@@ -187,42 +188,52 @@ def sampler(predicted_data,
     threshold_for_fraud: probability at which fraud is decided
     method: method for finding informative points, can be 'entropy','centropy','random','margin','entrepRE','entrepRBF'
             'entropy': Shannon Entropy Sampling
-            'centropy': Ground Truth Cross Entropy Sampling
+            'centropy': Ground Truth Cross Entropy Sampling NOT RECOMMENDED
             'random': Random Sampling
             'margin': Margin Sampling
             'entrepRE': Entropy with similarity constraints via euclidean norm
             'entrepRBF': Entropy with similarity constraints via RBF kernel
     '''
     # generate a certain amount of fraud cases
+    print("...Sampling...")
+    print("Fraud/Sample ratio:", alpha)
+    print("Method: ", method)
     n_fraud = int(K*alpha)
     n_non_fraud = K - n_fraud
     # get the indices of fraud cases
-    fraud_indices = jnp.where(predicted_data[:,-1] > threshold_for_fraud)
+    fraud_indices = jnp.where(predicted_data[:,-1] > threshold_for_fraud)[0]
     fraud_indices_sample = fraud_indices[:n_fraud]
     # get the indices of non-fraud cases for the sample
     non_fraud_indices = jnp.where(predicted_data[:,-1] <= threshold_for_fraud)
     non_fraud_data = predicted_data[non_fraud_indices]
 
-    if method == 'entropy':
-        indices = entropy(n_non_fraud,non_fraud_data)
-    elif method == 'centropy':
-        indices = centropy(n_non_fraud,non_fraud_data)
-    elif method == 'random':
-        indices = random(n_non_fraud,non_fraud_data)
-    elif method == 'margin':
-        indices = margin(n_non_fraud,non_fraud_data)
-    elif method == 'entrepRE':
-        indices = entrepRE(n_non_fraud,non_fraud_data)
+    #Generate similarity data
+    if method == 'entrepRE':
+        repres_data = representativeness_re(predicted_data[:,0:-1], beta=RE_beta)
     elif method == 'entrepRBF':
-        indices = entrepRBF(n_non_fraud,non_fraud_data)
+        repres_data = representativeness_rbf(predicted_data[:,0:-1], sigma=RBF_sigma, bRBF_beta=1)
+    
+
+    if method == 'entropy':
+        indices = entropy(n_non_fraud,predicted_data)
+    elif method == 'centropy':
+        indices = centropy(n_non_fraud,predicted_data)
+    elif method == 'random':
+        indices = random(n_non_fraud,predicted_data)
+    elif method == 'margin':
+        indices = margin(n_non_fraud,predicted_data)
+    elif method == 'entrepRE':
+        indices = entrepRE(n_non_fraud,predicted_data,repres_data=repres_data)
+    elif method == 'entrepRBF':
+        indices = entrepRBF(n_non_fraud,predicted_data,repres_data=repres_data)
     else:
         raise ValueError('Method not supported by sampler')
     # print the indices
-    print(f"Fraud indices: {fraud_indices_sample}")
-    print(f"Non-Fraud indices: {indices}")
+    print(f"Fraud indices: \n {fraud_indices_sample}")
+    print(f"Uncertainty indices: \n {indices}")
 
     # combine and output
-    return jnp.concatenate(fraud_indices_sample,indices)
+    return jnp.concatenate([fraud_indices_sample,indices],axis = 0)
 
 
 

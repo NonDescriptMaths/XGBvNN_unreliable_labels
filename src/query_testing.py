@@ -21,16 +21,15 @@ def predict(data):
     return np.hstack((data, y_hat.reshape(-1, 1)))
 
 predicted_data = predict(X)
-print(predicted_data)
-print(predicted_data[:,0:-1])
-print(predicted_data[:,-1])
 
-repres_RBF = query.representativeness_re(predicted_data[:,0:-1], beta=2)
+#repres_RBF = query.representativeness_re(predicted_data[:,0:-1], beta=2)
+
 # Replace the model's predict method with our custom one
 
-# Use the shannon_entropy function with this model and the unlabelled data
-selected_indices = query.margin(10,predicted_data)
 
+selected_indices = query.sampler(predicted_data, K= 30, alpha = 0.3, method = 'entrepRBF')
+
+print(selected_indices)
 # Get the selected samples
 selected_samples = X[selected_indices]
 
