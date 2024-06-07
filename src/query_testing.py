@@ -29,7 +29,7 @@ repres_RBF = query.representativeness_re(predicted_data[:,0:-1], beta=2)
 # Replace the model's predict method with our custom one
 
 # Use the shannon_entropy function with this model and the unlabelled data
-selected_indices = query.entrepRBF(10,predicted_data,repres_data=repres_RBF)
+selected_indices = query.margin(10,predicted_data)
 
 # Get the selected samples
 selected_samples = X[selected_indices]

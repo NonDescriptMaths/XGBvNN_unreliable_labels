@@ -62,7 +62,7 @@ def representativeness_re(unlabelled_data, beta):
 ###################################
 # Define Uncertainty samplers (some of which use similarity functions)
 ###################################
-def centropy(model, K, unlabelled_data, labelled_data=None):
+def centropy(K, predicted_data, labelled_data=None):
     '''
     --- Ground Truth Cross Entropy Sampling ---
     Returns the top K samples w.r.t the cross entropy of the predictions.
@@ -74,12 +74,7 @@ def centropy(model, K, unlabelled_data, labelled_data=None):
     unlabelled_data: currently unlabelled data
     labelled_data: currently labelled data (may not be used)
     '''
-    predictions = model.predict(unlabelled_data)
-    '''
-    ASSUMPTIONS
-    predictions: (x,y,y_hat) for 0 <= y_hat <=1
-    '''
-    # Calculate the cross entropy of the predictions
+    p = predicted_data[:,-1]
     p = jnp.clip(predictions[2], 1e-10, 1 - 1e-10)
     q_value = jnp.mean(predictions[1])
     q = jnp.full(len(p),q_value)
@@ -87,7 +82,7 @@ def centropy(model, K, unlabelled_data, labelled_data=None):
     indices = jnp.argsort(-ce)
     return indices[:K]
 
-def margin(model, K, unlabelled_data, labelled_data=None):
+def margin(K, predicted_data, labelled_data=None):
     '''
     --- Margin Sampling ---
     Returns the K samples with the smallest margin of the predictions.
@@ -97,16 +92,15 @@ def margin(model, K, unlabelled_data, labelled_data=None):
     unlabelled_data: currently unlabelled data
     labelled_data: currently labelled data (may not be used)
     '''
-    predictions = model.predict(unlabelled_data)
-
+    p = predicted_data[:,-1]
     # Calculate the margin of the predictions
-    margin = jnp.abs(predictions[2] - 0.5)
+    margin = jnp.abs(p - 0.5)
 
     # Sort the margin values in ascending order and get the indices
     indices = jnp.argsort(margin)
 
     # Return the top K samples
-    return unlabelled_data[indices[:K]]
+    return indices[:K]
 
 def entropy(model, K, unlabelled_data, labelled_data=None):
     '''
@@ -133,52 +127,7 @@ def entropy(model, K, unlabelled_data, labelled_data=None):
     # Return the top K samples
     return indices[:K]
 
-
-
-def representativeness_rbf(unlabelled_data, sigma, beta):
-    """
-    Computes the representativeness for each sample in the unlabelled data.
-
-    Parameters:
-    - unlabelled_data: The dataset (as a 2D array) of unlabelled samples.
-    - sigma: The scaling parameter for the rbf.
-
-    Returns:
-    - representativeness: A 1D array containing the representativeness score of each sample.
-    """
-    
-    n_samples = unlabelled_data.shape[0]
-    # Initialise vector
-    representativeness = jnp.zeros(n_samples)
-    
-    for i in range(n_samples):
-        euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
-        # Calculate rbf
-        similarities = jnp.exp(-euclidean_dist / sigma)
-        # Calculate representativeness of sample i
-        representativeness[i] = (jnp.mean(similarities))**beta
-    
-    return representativeness
-
-
-def representativeness_reciprocal_euclidean(unlabelled_data, beta):
-    
-    n_samples = unlabelled_data.shape[0]
-    # Initialise vector
-    representativeness = jnp.zeros(n_samples)
-    
-    for i in range(n_samples):
-        euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
-        # Calculate euclidean similarity
-        similarities = 1 / euclidean_dist
-        # Calculate representativeness of sample i
-        representativeness[i] = (jnp.mean(similarities))**beta
-    
-    return representativeness
-
-
-
-def random(model, K, unlabelled_data, labelled_data=None):
+def random(K, predicted_data, labelled_data=None):
     '''
     model: prediction model
     K: number of queries to select
@@ -186,22 +135,21 @@ def random(model, K, unlabelled_data, labelled_data=None):
     labelled_data: currently labelled data (may not be used)
     '''
 
-    return unlabelled_data.sample(K)
+    return jnp.random.choice(len(predicted_data), K, replace=False)
 
-def entrepRE(model,K,unlabelled_data,labelled_data):
+def entrepRE(K,predicted_data,labelled_data,repres_data = []):
     '''
     Entropy with similarity constraints
-    inputs: model: xgboost or nn
+    inputs: 
             K: number of queries to select
-            unlabelled_data: currently unlabelled data
+            predicted_data: prediction data from model
             labelled_data: currently labelled data
     outputs: indices of selected samples
     '''
-    predictions = model.predict(unlabelled_data)
-    p = predictions[2]
+    p = predicted_data[:,-1]
     p = jnp.clip(p, 1e-10, 1 - 1e-10)
     entropy = -p * jnp.log2(p) - (1 - p) * jnp.log2(1 - p)
-    loss_func = entropy * repres_RE
+    loss_func = entropy * repres_data
     indices = jnp.argsort(-loss_func)
     return indices[:K]
 
@@ -225,7 +173,7 @@ def entrepRBF(K,predicted_data,labelled_data=None,repres_data = []):
 # Define main query function 
 ###################################
 
-def sampler(unlabelled_data,
+def sampler(predicted_data,
             K= 30,
             alpha = 0.5,
             threshold_for_fraud = 0.8,
@@ -237,9 +185,44 @@ def sampler(unlabelled_data,
     K: Size of sample
     alpha: proportion of sample required to be FRAUD cases
     threshold_for_fraud: probability at which fraud is decided
-    method: method for finding informative points, can be 'entropy','centropy','random','margin','entrepRE','entrepRBF','
+    method: method for finding informative points, can be 'entropy','centropy','random','margin','entrepRE','entrepRBF'
+            'entropy': Shannon Entropy Sampling
+            'centropy': Ground Truth Cross Entropy Sampling
+            'random': Random Sampling
+            'margin': Margin Sampling
+            'entrepRE': Entropy with similarity constraints via euclidean norm
+            'entrepRBF': Entropy with similarity constraints via RBF kernel
     '''
-    return True
+    # generate a certain amount of fraud cases
+    n_fraud = int(K*alpha)
+    n_non_fraud = K - n_fraud
+    # get the indices of fraud cases
+    fraud_indices = jnp.where(predicted_data[:,-1] > threshold_for_fraud)
+    fraud_indices_sample = fraud_indices[:n_fraud]
+    # get the indices of non-fraud cases for the sample
+    non_fraud_indices = jnp.where(predicted_data[:,-1] <= threshold_for_fraud)
+    non_fraud_data = predicted_data[non_fraud_indices]
+
+    if method == 'entropy':
+        indices = entropy(n_non_fraud,non_fraud_data)
+    elif method == 'centropy':
+        indices = centropy(n_non_fraud,non_fraud_data)
+    elif method == 'random':
+        indices = random(n_non_fraud,non_fraud_data)
+    elif method == 'margin':
+        indices = margin(n_non_fraud,non_fraud_data)
+    elif method == 'entrepRE':
+        indices = entrepRE(n_non_fraud,non_fraud_data)
+    elif method == 'entrepRBF':
+        indices = entrepRBF(n_non_fraud,non_fraud_data)
+    else:
+        raise ValueError('Method not supported by sampler')
+    # print the indices
+    print(f"Fraud indices: {fraud_indices_sample}")
+    print(f"Non-Fraud indices: {indices}")
+
+    # combine and output
+    return jnp.concatenate(fraud_indices_sample,indices)
 
 
 
