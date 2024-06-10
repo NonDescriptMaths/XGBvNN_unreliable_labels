@@ -1,5 +1,6 @@
 import pandas as pd
 from clean_data import normalize
+import os
 
 def get_data(normalize_data=False):
     train = pd.read_csv('../data/train.csv')
