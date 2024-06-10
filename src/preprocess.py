@@ -86,11 +86,59 @@ def _get_sample_numbers(N, alpha, beta, gamma):
     return a, b, c, d
 
 
+def _splitdfs_by_weights(
+    tp_subdf: pd.DataFrame,
+    tn_subdf: pd.DataFrame,
+    tp_weights: Iterable[float],
+    tn_weights: Iterable[float],
+    a: int,
+    b: int,
+    seed = 20142015
+):
+    np.random.seed(seed)
+    # select a labels from true positives
+    a_idxs = np.random.choice(tp_subdf.index, a, replace=False, p=tp_weights)
+    # split true positives into a and c
+    a_subdf: pd.DataFrame = tp_subdf.loc[a_idxs]
+    c_subdf: pd.DataFrame = tp_subdf.drop(index=a_idxs)
+
+    # select b labels from true negatives
+    b_idxs = np.random.choice(tn_subdf.index, b, replace=False, p=tn_weights)
+    # split true negatives into b and d
+    b_subdf: pd.DataFrame = tn_subdf.loc[b_idxs]
+    d_subdf: pd.DataFrame = tn_subdf.drop(index=b_idxs)
+
+    return a_subdf, b_subdf, c_subdf, d_subdf
+
+
+def _get_weights(
+    probs: Optional[Iterable[float]],
+    tp_mask: pd.Series,
+    tn_mask: pd.Series,
+):
+    # split weights into true positives and true negatives
+    if probs is not None:
+        tp_weights = probs[tp_mask]
+        tn_weights = probs[tn_mask]
+            
+        # normalize the weights
+        tp_weights = np.array(tp_weights).reshape(-1, 1)
+        tn_weights = np.array(tn_weights).reshape(-1, 1)
+        tp_weights = normalize(tp_weights, axis=0, norm="l1").flatten()
+        tn_weights = normalize(tn_weights, axis=0, norm="l1").flatten()
+    else:
+        tp_weights = None
+        tn_weights = None
+
+    return tp_weights, tn_weights
+
+
 def remove_labels(
-    df,
-    labelled_proportion,
-    labelled_positive_proportion,
-    weights: Optional[Iterable[float]] = None,
+    df: pd.DataFrame,
+    labelled_proportion: float,
+    labelled_positive_proportion: float,
+    probs: Optional[Iterable[float]] = None,
+    top_probs_only: bool = False,
     seed=20142015,
 ):
     """
@@ -99,7 +147,7 @@ def remove_labels(
     true_pos_proportion: num true samples/num all samples
     human_labelled_proportion: num human labelled samples/num all samples
     human_labelled_positive_proportion: num human labelled positive samples/num all human labelled samples
-    weights: weights for each sample
+    probs: weights for each sample (e.g. from predict_proba)
                 - if None
                     all samples are equally likely to be selected
                 - otherwise
@@ -116,9 +164,10 @@ def remove_labels(
     assert labelled_proportion >= 0 and labelled_proportion <= 1
     assert labelled_positive_proportion >= 0 and labelled_positive_proportion <= 1
     # check that the weights are valid
-    if weights is not None:
-        assert all([w >= 0 for w in weights])
-        assert len(weights) == len(df)
+    if probs is not None:
+        assert all([w >= 0 for w in probs])
+        assert len(probs) == len(df)
+        df["probs"] = probs
 
     # add a column to the dataframe that is the fraud_bool column but with the labels removed
     df["fraud_masked"] = df["fraud_bool"]
@@ -126,41 +175,34 @@ def remove_labels(
     tp_mask: pd.Series = df["fraud_bool"] == 1
     tn_mask: pd.Series = df["fraud_bool"] == 0
 
-    # split the dataframe into true positives and true negatives
-    tp_subdf: pd.DataFrame = df[tp_mask]
-    tn_subdf: pd.DataFrame = df[tn_mask]
-    # split weights into true positives and true negatives
-    if weights is not None:
-        tp_weights = weights[tp_mask]
-        tn_weights = weights[tn_mask]
-        # normalize the weights
-        tp_weights = np.array(tp_weights).reshape(-1, 1)
-        tn_weights = np.array(tn_weights).reshape(-1, 1)
-        tp_weights = normalize(tp_weights, axis=0, norm="l1").flatten()
-        tn_weights = normalize(tn_weights, axis=0, norm="l1").flatten()
-        # weights = normalize(weights, axis=0, norm='l1').flatten()
-    else:
-        tp_weights = None
-        tn_weights = None
-
     N = len(df)
     alpha = sum(tp_mask) / N
     beta = labelled_proportion
     gamma = labelled_positive_proportion
 
     a, b, c, d = _get_sample_numbers(N, alpha, beta, gamma)
+    
+    # split the dataframe into true positives and true negatives
+    tp_subdf: pd.DataFrame = df[tp_mask]
+    tn_subdf: pd.DataFrame = df[tn_mask]
+    
+    if probs is not None and top_probs_only:
+        tp_weights = probs[tp_mask]
+        tn_weights = probs[tn_mask]
+        a_idxs = tp_subdf.nlargest(a, 'probs').index
+        a_subdf = tp_subdf.loc[a_idxs]
+        b_idxs = tn_subdf.nlargest(b, 'probs').index
+        b_subdf = tn_subdf.loc[b_idxs]
+        c_subdf = tp_subdf.drop(index=a_idxs)
+        d_subdf = tn_subdf.drop(index=b_idxs)
+    else:
+        # get weights for each sample
+        tp_weights, tn_weights = _get_weights(probs, tp_mask, tn_mask)
 
-    # select a labels from true positives
-    a_idxs = np.random.choice(tp_subdf.index, a, replace=False, p=tp_weights)
-    # split true positives into a and c
-    a_subdf: pd.DataFrame = tp_subdf.loc[a_idxs]
-    c_subdf: pd.DataFrame = tp_subdf.drop(index=a_idxs)
-
-    # select b labels from true negatives
-    b_idxs = np.random.choice(tn_subdf.index, b, replace=False, p=tn_weights)
-    # split true negatives into b and d
-    b_subdf: pd.DataFrame = tn_subdf.loc[b_idxs]
-    d_subdf: pd.DataFrame = tn_subdf.drop(index=b_idxs)
+        # split dfs into labelled true positives, labelled true negatives, unlabelled true positives, unlabelled true negatives
+        a_subdf, b_subdf, c_subdf, d_subdf = _splitdfs_by_weights(
+            tp_subdf, tn_subdf, tp_weights, tn_weights, a, b
+        )
 
     # remove labels from c_subdf and d_subdf
     c_subdf["fraud_masked"] = np.nan
@@ -172,8 +214,10 @@ def remove_labels(
     assert len(df) == N
     assert df.index.is_unique
 
-    return df
+    if probs is not None:
+        df = df.drop(columns=["probs"])
 
+    return df
 
 if __name__ == "__main__":
     # Load the data
@@ -188,11 +232,21 @@ if __name__ == "__main__":
     labelled_proportion = 0.01
     labelled_positive_proportion = 0.4
 
+    # If using the weak learner results for de-labelling:
+    # import them here, 
+    # then change the probs argument to newprobs
+    # (and set top_probs_only as desired)
+    weak_learner_results = pd.read_csv("./preprocess/weaklearner_weights.csv")
+    newprobs = weak_learner_results["y_prob"]
+
     print("Removing labels...")
     df = remove_labels(
         df,
         labelled_proportion=labelled_proportion,
         labelled_positive_proportion=labelled_positive_proportion,
+        probs=None,
+        # probs=newprobs,
+        top_probs_only=True,
     )
 
     # Split the data
