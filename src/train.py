@@ -18,30 +18,48 @@ def pretrain(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.nda
     return metrics
 
 # Train model
-def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray, num_epochs=20, batch_size='max', query_method='', query_alpha=0.5, query_K=10, query_args={}):
+def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray, X_unlabelled:np.ndarray = None, y_unlabelled:np.ndarray = None, num_epochs=20, full_train_every=10, update_ratio=0.1, batch_size='max', query_method='', query_alpha=0.5, query_K=10, query_args={}):
     # Separate data into labelled and unlabelled
 
-    label_idx = np.where(y != -1)[0]
+    # label_idx = np.where(y != -1)[0]
 
-    ds = Dataset.from_dict({"X": X[label_idx], "y": y[label_idx]})
-    ds = ds.with_format("jax")
+    # breakpoint()
 
-    ds_unlabelled = Dataset.from_dict({"X": X[~label_idx], "y": y[~label_idx]})
+    # ds = Dataset.from_dict({"X": X, "y": y})
+    # ds = ds.with_format("jax")
+
+    if query_method != '':
+        assert X_unlabelled is not None
+        assert y_unlabelled is not None
+
+        # ds_unlabelled = Dataset.from_dict({"X": X_unlabelled, "y": y_unlabelled})
+
+    next_X = X
+    next_y = y
 
     # Begin Training!
     if batch_size == 'max':
-        batch_size = len(X)
+        batch_size = len(next_X)
 
     all_metrics = []
     for epoch in range(num_epochs):
         print(f"Epoch {epoch}")
-        ds.shuffle(seed=epoch)
+        
+        # ds.shuffle(seed=epoch)
+        
+        #shuffle X and y
+        perm = np.random.permutation(len(next_X))
+        next_X = next_X[perm]
+        next_y = next_y[perm]
 
-        for batch_num, batch in enumerate(ds.iter(batch_size=batch_size)):
+        # for batch_num, batch in enumerate(ds.iter(batch_size=batch_size)):
+        for batch_num in range(0, len(next_X), batch_size):
             print(f"Batch {batch_num}")
+            
+            batch = {"X": next_X[batch_num:batch_num+batch_size], "y": next_y[batch_num:batch_num+batch_size]}
             X_train, y_train = batch['X'], batch['y']
             
-            if (epoch % 10 == 0) and (batch_num == 0):
+            if (epoch % full_train_every == 0) and (batch_num == 0) and (full_train_every != -1):
                 pretrain(model, X_train, y_train, X_test, y_test)
                 metric = model.get_metrics()
             else: 
@@ -52,19 +70,50 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
 
         # select some unlabelled data to label
         if query_method != '':
-            logits = model.predict(ds_unlabelled['X'])
-            predicted = jax.nn.sigmoid(logits)
+            # predict on unlabelled data by batching
+            predicted = []
+            # for batch_num, batch in enumerate(ds_unlabelled.iter(batch_size=10*batch_size)):
+            for batch_num in range(0, len(X_unlabelled), 10*batch_size):
+                print(f"Predicting on batch {batch_num//(10*batch_size)}")
+                batch = {"X": X_unlabelled[batch_num:batch_num+10*batch_size]}
+                logits = model.predict(batch['X'])
+                predicted.append(jax.nn.sigmoid(logits))
+
+            predicted = jnp.concatenate(predicted)
             
             query_idx = sampler(predicted, method=query_method, K=query_K, alpha=query_alpha, **query_args)
+            # breakpoint() 
+            newly_labelled_X = X_unlabelled[query_idx]
+            newly_labelled_y = y_unlabelled[query_idx]
 
-            X_labelled = np.concatenate([X_train, X[query_idx]])
-            y_labelled = np.concatenate([y_train, y[query_idx]])
-            ds = Dataset.from_dict({"X": X_labelled, "y": y_labelled})
-            ds = ds.with_format("jax")
-            ds_unlabelled = Dataset.from_dict({"X": np.delete(X, query_idx, axis=0), "y": np.delete(y, query_idx, axis=0)})
-            # X, y = get_X_y(ds)
-            # X_unlabelled, y_unlabelled = get_X_y(ds_unlabelled)
+            prev_X = X
+            prev_y = y
+            
+            # update the labelled data for the next iteration
+            idx = np.random.randint(prev_X.shape[0], size=int(X_train.shape[0]*(1-update_ratio)))
 
+            next_X = np.concatenate((newly_labelled_X, prev_X[idx, :]), axis=0)
+            next_y = np.concatenate((newly_labelled_y, prev_y[idx]), axis=0)
+
+            # update total collection of labelled data
+            X = np.concatenate([X, X_unlabelled[query_idx]])
+            y = np.concatenate([y, y_unlabelled[query_idx]])
+            
+            # remove newly labelled data from unlabelled data
+            X_unlabelled = np.delete(X_unlabelled, query_idx, axis=0)
+            y_unlabelled = np.delete(y_unlabelled, query_idx, axis=0)
+
+            # print(f"Labelled size: {len(X)}, Unlabelled size: {len(X_unlabelled)}")
+
+
+            # X_labelled = np.concatenate([ds['X'], ds_unlabelled['X'][query_idx]])
+            # y_labelled = np.concatenate([ds['y'], ds_unlabelled['y'][query_idx]])
+        
+            # ds = Dataset.from_dict({"X": X_labelled, "y": y_labelled})
+            # ds = ds.with_format("jax")
+            # ds_unlabelled = Dataset.from_dict({"X": np.delete(X, query_idx, axis=0), "y": np.delete(y, query_idx, axis=0)})
+
+            # breakpoint()
 
     return all_metrics
 

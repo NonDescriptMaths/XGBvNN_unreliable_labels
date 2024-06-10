@@ -1,5 +1,6 @@
 import pandas as pd
 from clean_data import normalize
+import os
 
 def get_data(normalize_data=False):
     train = pd.read_csv('../data/train.csv')
@@ -33,8 +34,14 @@ def get_X_y_labelled(df):
 def get_X_y_unlabelled(df):
     df = df[df['fraud_masked'].isna()]
 
-    y = df['fraud_masked']
+    # uncommenting this would return the NaNs, but we want the TRUE labels
+    # of the 'unlabelled' data (and we'll just promise not to use them unless
+    # they get selected by a query)
+    # y = df['fraud_masked']
+
+    y = df['fraud_bool']
     X = df.drop(['fraud_bool', 'fraud_masked'], axis=1)
+
     return X, y
 
 def check_preprocessed():

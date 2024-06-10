@@ -63,11 +63,12 @@ if  __name__ == "__main__":
     parser.add_argument('--benchmark', type=str, help='Name of the benchmark to use', default="labelled_exp")
     parser.add_argument('--model', type=str, help='Model to use', default="xgb")
     parser.add_argument('--learning_rate', type=float, help='Learning rate to use', default=0.01)
+    parser.add_argument('--full_train_every', type=int, help='How often to fully train the model (in epochs)', default=10)
     parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=200)
+    parser.add_argument('--update_ratio', type=float, help='Ratio of old:new data to train on in an active learning iteration', default=0.1)
     parser.add_argument('--batch_size', type=str, help='Batch size to use', default='max')
     parser.add_argument('--opt', type=str, help='Optimizer to use', default="adam")
     parser.add_argument('--loss', type=str, help='Loss function to use', default="logloss")
-    parser.add_argument('--update_ratio', type=float, help='Ratio of update epochs to training epochs', default=0.1)
     parser.add_argument('--num_update_epochs', type=int, help='Number of update epochs to run', default=10)
     parser.add_argument('--MLP_shape', type=str, help='Shape of the MLP', default="128,128")
     parser.add_argument('--query_method', type=str, help='Query method to use', default="")
@@ -80,6 +81,8 @@ if  __name__ == "__main__":
     config = {
         'benchmark': args.benchmark,
         'model': args.model,
+        'learning_rate': args.learning_rate,
+        'full_train_every': args.full_train_every,
         'num_epochs': args.num_epochs,
         'batch_size': args.batch_size,
         'opt': args.opt,
@@ -100,7 +103,6 @@ if  __name__ == "__main__":
     if config['model'] == 'neural_net':
         # to_grid['batch_size'] = [32, 64, 128]
         # to_grid['num_epochs'] = [50, 100, 200]
-        to_grid['update_ratio'] = [0.1, 0.3]
         to_grid['num_update_epochs'] = [5, 10]
         # to_grid['MLP_shape'] = ['128,128']
     elif config['model'] == 'xgboost':

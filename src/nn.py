@@ -70,14 +70,13 @@ def eval_step(state, X_batch, y_batch):
 
 
 class NNWrapper:
-    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, update_ratio=0.5, num_update_epochs=10, MLP_shape=[51,128,128,1]):
+    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, num_update_epochs=10, MLP_shape=[51,128,128,1]):
         '''
         lr: learning rate
         opt: optimizer
         loss: loss function
         num_epochs: number of epochs
         batch_size: batch size
-        update_ratio: ratio 
         num_update_epochs: number of epochs to update
         '''
         
@@ -87,7 +86,6 @@ class NNWrapper:
         self.loss = loss
         self.num_epochs = num_epochs
         self.batch_size = batch_size
-        self.update_ratio = update_ratio
         self.num_update_epochs = num_update_epochs
 
         self.model = MLP(features=MLP_shape)
@@ -169,18 +167,7 @@ class NNWrapper:
         if eval_set is not None:
             self.validation(eval_metric, eval_set)
 
-    def update(self, X_train, y_train, eval_metric, eval_set, X_prev = None, y_prev = None):
-        if X_prev is not None or y_prev is not None:
-            # first create new dataset by adding the new data to the old data with a ratio of update_ratio
-            idx = np.random.randint(X_prev.shape[0], size=int(X_train.shape[0]*(1-self.update_ratio)))
-
-            X = np.concatenate((X_train, X_prev[idx, :]), axis=0)
-            y = np.concatenate((y_train, y_prev[idx, :]), axis=0)
-
-        else:
-            X = X_train
-            y = y_train
-
+    def update(self, X, y, eval_metric, eval_set):
         idx = np.random.permutation(X.shape[0])
 
         X = X[idx, ...]
@@ -232,15 +219,17 @@ class NNWrapper:
 if __name__ == '__main__':
     # from naive_data import naive_get_data
     # X, y, X_test, y_test = naive_get_data()
-    from utils import get_data, get_X_y, get_X_y_labelled
+    from utils import get_data, get_X_y, get_X_y_labelled, get_X_y_unlabelled
     from train import pretrain, train
 
-    FULL_SET = True
+    FULL_SET = False
     FULL_SET_PROP = 0.3
-    NUM_EPOCHS = 50
+    NUM_EPOCHS = 5
     NORMALIZE_DATA = True
 
-    QUERY_METHOD = ''
+    UPDATE_RATIO = 0.1
+
+    QUERY_METHOD = 'entropy'
     QUERY_ALPHA = 0.5
     QUERY_K = 100
 
@@ -249,9 +238,15 @@ if __name__ == '__main__':
     if FULL_SET:
         X, y = get_X_y(train_set, true_labels=True, prop=FULL_SET_PROP)
         X_test, y_test = get_X_y(test_set, true_labels=True, prop=FULL_SET_PROP)
+        X_unlabelled, y_unlabelled = None, None
     else:
         X, y = get_X_y_labelled(train_set)
         X_test, y_test = get_X_y_labelled(test_set)
+
+        X_unlabelled, y_unlabelled = get_X_y_unlabelled(train_set)
+
+        X_unlabelled = X_unlabelled.to_numpy().astype(np.float32)
+        y_unlabelled = y_unlabelled.to_numpy().astype(np.float32)
 
     
     # from naive_data import naive_get_data
@@ -272,7 +267,7 @@ if __name__ == '__main__':
     # print(results)
 
     # Test training (involves pretraining as well)
-    results = train(model, X, y, X_test, y_test, num_epochs=NUM_EPOCHS, query_method=QUERY_METHOD, query_alpha=QUERY_ALPHA, query_K=QUERY_K)
+    results = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=NUM_EPOCHS, update_ratio=UPDATE_RATIO, query_method=QUERY_METHOD, query_alpha=QUERY_ALPHA, query_K=QUERY_K)
     # print(results)
 
     import matplotlib.pyplot as plt
