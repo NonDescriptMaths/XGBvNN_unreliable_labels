@@ -60,6 +60,6 @@ class XGBWrapper:
 # ----- Currently not using this -----
 
 # Create xgb model
-def get_xgb(lr=0.1):
+def get_xgb(lr=0.1, n_estimators=100, max_depth=2):
     """ Create an XGBClassifier model with the given learning rate. """
-    return XGBWrapper(XGBClassifier(objective='binary:logistic', n_estimators=100, max_depth=2, learning_rate=lr))
+    return XGBWrapper(XGBClassifier(objective='binary:logistic', n_estimators=n_estimators, max_depth=max_depth, learning_rate=lr))

@@ -25,7 +25,7 @@ def labelled_exp(saver, **config):
 
     # Get the model
     if config['model'] == 'xgboost':
-        model = get_xgb(lr=config['learning_rate'])
+        model = get_xgb(lr=config['learning_rate'], n_estimators=config['n_estimators'], max_depth=config['max_depth'])
     elif config['model'] == 'neural_net':
         model = get_nn(
             lr=config['learning_rate'], 
@@ -94,8 +94,26 @@ if  __name__ == "__main__":
     }
 
     to_grid ={
-        'learning_rate': [0.1, 0.01, 0.001, 0.0001],
+        
     }
+
+    if config['model'] == 'neural_net':
+        # to_grid['batch_size'] = [32, 64, 128]
+        # to_grid['num_epochs'] = [50, 100, 200]
+        to_grid['update_ratio'] = [0.1, 0.3]
+        to_grid['num_update_epochs'] = [5, 10]
+        # to_grid['MLP_shape'] = ['128,128']
+    elif config['model'] == 'xgboost':
+        # to_grid['learning_rate'] = [0.1, 0.01, 0.001]
+        to_grid['n_estimators'] = [100, 200]
+        to_grid['max_depth'] = [2, 4]
+
+    if config['benchmark'] != 'labelled_exp':
+        to_grid['query_method'] = ['entropy', 'random', 'margin']#, 'centropy', 'entrepRE', 'entrepRBF'] # maybe ignore last 2, or 3?
+        to_grid['query_K'] = [10, 50]
+        to_grid['query_alpha'] = [0, 0.5, 0.75]
+    
+
     print("Constants: ", config, flush=True)
     print("Searching Over: ", to_grid, flush=True)
     grid = slune.searchers.SearcherGrid(to_grid, runs=1)

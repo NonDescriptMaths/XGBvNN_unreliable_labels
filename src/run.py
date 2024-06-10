@@ -10,6 +10,8 @@ if  __name__ == "__main__":
             'neural_net',
             'xgboost',
             ],
+        'learning_rate': [0.0001, 0.001, 0.01, 0.1],
+        'update_ratio': [0, 0.1, 1],
     }
     grid_info_rank = slune.searchers.SearcherGrid(to_search_info_rank)
 

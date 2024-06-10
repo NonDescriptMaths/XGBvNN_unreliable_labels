@@ -235,12 +235,12 @@ if __name__ == '__main__':
     from utils import get_data, get_X_y, get_X_y_labelled
     from train import pretrain, train
 
-    FULL_SET = False
+    FULL_SET = True
     FULL_SET_PROP = 0.3
     NUM_EPOCHS = 50
     NORMALIZE_DATA = True
 
-    QUERY_METHOD = 'entropy'
+    QUERY_METHOD = ''
     QUERY_ALPHA = 0.5
     QUERY_K = 100
 

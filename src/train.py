@@ -53,9 +53,9 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
         # select some unlabelled data to label
         if query_method != '':
             logits = model.predict(ds_unlabelled['X'])
-            predicted_labels = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
+            predicted = jax.nn.sigmoid(logits)
             
-            query_idx = sampler(predicted_labels, method=query_method, K=query_K, alpha=query_alpha, **query_args)
+            query_idx = sampler(predicted, method=query_method, K=query_K, alpha=query_alpha, **query_args)
 
             X_labelled = np.concatenate([X_train, X[query_idx]])
             y_labelled = np.concatenate([y_train, y[query_idx]])
