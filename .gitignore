@@ -15,8 +15,11 @@ data/archive/Variant V.csv
 # Dont want to upload virtual environment
 ./venv
 venv/
+.venv
 # Dont want to upload data
 /data
 /plots
 /src/plots
 /src/results
+
+/src/__pycache__

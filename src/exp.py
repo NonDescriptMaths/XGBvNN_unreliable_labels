@@ -1,10 +1,7 @@
 import argparse
 import slune
 import os
-import matplotlib.pyplot as plt
 from train import pretrain, train
-import numpy as np
-import torch
 from xgb import get_xgb
 from nn import get_nn
 from utils import get_data, get_X_y_labelled, check_preprocessed
@@ -47,9 +44,6 @@ def labelled_exp(saver, **config):
     saver.log(metrics)
     saver.save_collated()
 
-    # If we are using cuda we clear the memory
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
     return metrics
 
 # If running missing_labels_exp
@@ -79,21 +73,21 @@ if  __name__ == "__main__":
     args = parser.parse_args()
 
     config = {
-        'benchmark': args.benchmark,
-        'model': args.model,
-        'learning_rate': args.learning_rate,
-        'full_train_every': args.full_train_every,
-        'num_epochs': args.num_epochs,
-        'batch_size': args.batch_size,
-        'opt': args.opt,
-        'loss': args.loss,
-        'update_ratio': args.update_ratio,
-        'num_update_epochs': args.num_update_epochs,
-        'MLP_shape': args.MLP_shape,
-        'query_method': args.query_method,
-        'query_K': args.query_K,
-        'query_alpha': args.query_alpha,
-        'query_args': args.query_args,
+        'benchmark': [args.benchmark],
+        'model': [args.model],
+        'learning_rate': [args.learning_rate],
+        'full_train_every': [args.full_train_every],
+        'num_epochs': [args.num_epochs],
+        'batch_size': [args.batch_size],
+        'opt': [args.opt],
+        'loss': [args.loss],
+        'update_ratio': [args.update_ratio],
+        'num_update_epochs': [args.num_update_epochs],
+        'MLP_shape': [args.MLP_shape],
+        'query_method': [args.query_method],
+        'query_K': [args.query_K],
+        'query_alpha': [args.query_alpha],
+        'query_args': [args.query_args],
     }
 
     to_grid ={
@@ -106,34 +100,31 @@ if  __name__ == "__main__":
         to_grid['num_update_epochs'] = [5, 10]
         # to_grid['MLP_shape'] = ['128,128']
     elif config['model'] == 'xgboost':
-        # to_grid['learning_rate'] = [0.1, 0.01, 0.001]
-        to_grid['n_estimators'] = [100, 200]
-        to_grid['max_depth'] = [2, 4]
+        # config['learning_rate'] = [0.1, 0.01, 0.001]
+        config['n_estimators'] = [100, 200]
+        config['max_depth'] = [2, 4]
 
     if config['benchmark'] != 'labelled_exp':
-        to_grid['query_method'] = ['entropy', 'random', 'margin']#, 'centropy', 'entrepRE', 'entrepRBF'] # maybe ignore last 2, or 3?
-        to_grid['query_K'] = [10, 50]
-        to_grid['query_alpha'] = [0, 0.5, 0.75]
+        config['query_method'] = ['entropy', 'random', 'margin']#, 'centropy', 'entrepRE', 'entrepRBF'] # maybe ignore last 2, or 3?
+        config['query_K'] = [10, 50]
+        config['query_alpha'] = [0, 0.5, 0.75]
     
 
-    print("Constants: ", config, flush=True)
-    print("Searching Over: ", to_grid, flush=True)
-    grid = slune.searchers.SearcherGrid(to_grid, runs=1)
-    grid.check_existing_runs(slune.get_csv_saver(root_dir='results'))
+    print("Searching Over: ", config, flush=True)
+    grid = slune.searchers.SearcherGrid(config)
+    # grid.check_existing_runs(slune.get_csv_saver(root_dir='results'))
     for g in grid:
-        # Add the net to the config
-        g = slune.utils.ls_to_dict(g)
-        config = {**config, **g}
-        saver = slune.get_csv_saver(root_dir='results', params=config)
+        print("Current params: ", g)
+        saver = slune.get_csv_saver(root_dir='results', params=g)
         # Train the model
-        if config['benchmark'] == 'labelled_exp':
-            metrics = labelled_exp(saver, **config)
+        if g['benchmark'] == 'labelled_exp':
+            metrics = labelled_exp(saver, **g)
         elif config['benchmark'] == 'missing_labels':
-            metrics = missing_labels_exp(saver, **config)
+            metrics = missing_labels_exp(saver, **g)
         else:
             raise ValueError("Benchmark not recognized.")
         # Create path for saving
-        path = os.path.dirname(saver.get_path(slune.utils.dict_to_ls(**config)))
+        path = saver.getset_current_path()
         print("path: ", path, flush=True)
         
         # Produce and save plots
@@ -142,6 +133,3 @@ if  __name__ == "__main__":
         # elif config['benchmark'] == 'missing_labels':
         #     plot_missing_labels(metrics, path)
         # TODO: Implement plotting functions
-
-        # Clear GPU memory
-        torch.cuda.empty_cache()
