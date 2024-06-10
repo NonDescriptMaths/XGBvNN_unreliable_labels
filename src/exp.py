@@ -4,13 +4,14 @@ import os
 from train import pretrain, train
 from xgb import get_xgb
 from nn import get_nn
-from utils import get_data, get_X_y_labelled, check_preprocessed
+from utils import get_data, get_X_y_labelled, check_preprocessed, get_X_y_unlabelled
+from numpy import float32
 
 # If running labelled_exp
 def labelled_exp(saver, **config):
     check_preprocessed()
     # Get and prepare the data
-    train_data, test_data, validate_data = get_data()
+    train_data, test_data, validate_data = get_data(normalize_data=config['model'] == 'neural_net')
     X_train, y_train = get_X_y_labelled(train_data)
     # X_val, y_val = get_X_y_labelled(validate_data) Not currently using validation data
     X_test, y_test = get_X_y_labelled(test_data)
@@ -48,8 +49,46 @@ def labelled_exp(saver, **config):
 
 # If running missing_labels_exp
 def missing_labels_exp(saver, **config):
-    raise NotImplementedError("Missing labels experiment not implemented yet.")
+    check_preprocessed()
+    # Get and prepare the data
+    train_data, test_data, validate_data = get_data(normalize_data=config['model'] == 'neural_net')
+    X, y = get_X_y_labelled(train_data)
+    X_test, y_test = get_X_y_labelled(test_data)
 
+    X_unlabelled, y_unlabelled = get_X_y_unlabelled(train_data)
+
+    X = X.to_numpy().astype(float32)
+    y = y.to_numpy().astype(float32)
+    X_test = X_test.to_numpy().astype(float32)
+    y_test = y_test.to_numpy().astype(float32)
+    X_unlabelled = X_unlabelled.to_numpy().astype(float32)
+    y_unlabelled = y_unlabelled.to_numpy().astype(float32)
+
+    # Get the model
+    if config['model'] == 'xgboost':
+        model = get_xgb(lr=config['learning_rate'], n_estimators=config['n_estimators'], max_depth=config['max_depth'])
+    elif config['model'] == 'neural_net':
+        model = get_nn(
+            lr=config['learning_rate'], 
+            opt=config['opt'], 
+            loss=config['loss'], 
+            num_epochs=config['num_epochs'], 
+            batch_size=config['batch_size'],
+            update_ratio=config['update_ratio'],
+            num_update_epochs=config['num_update_epochs'],
+            MLP_shape=config['MLP_shape'],
+            )
+    else:
+        raise ValueError("Model not recognized.")
+    
+    # Train the model
+    metrics = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=config['num_epochs'], update_ratio=config['update_ratio'], query_method=config['query_method'], query_alpha=config['query_alpha'], query_K=config['query_K'], query_args=config['query_args'])
+
+    # Save results
+    saver.log(metrics)
+    saver.save_collated()
+
+    return metrics
 # Following will be run on the cluster as a job, after being queued by run.py
 if  __name__ == "__main__":
     # Parse input from command line
