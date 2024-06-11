@@ -6,6 +6,7 @@ from xgb import get_xgb
 from nn import get_nn
 from utils import get_data, get_X_y_labelled, check_preprocessed, get_X_y_unlabelled
 from numpy import float32
+import wandb
 
 # If running labelled_exp
 def labelled_exp(saver, **config):
@@ -170,16 +171,22 @@ if  __name__ == "__main__":
 
     print("Searching Over: ", config, flush=True)
     grid = slune.searchers.SearcherGrid(config)
+    # Get wandb API key, in 'wandb_api_key.txt'
+    with open('wandb_api_key.txt', 'r') as f:
+        wandb_api_key = f.read()
+    os.environ['WANDB_API_KEY'] = wandb_api_key
     # grid.check_existing_runs(slune.get_csv_saver(root_dir='results'))
     for g in grid:
         print("Current params: ", g)
         saver = slune.get_csv_saver(root_dir='results', params=g)
-        g = list_to_dict(g)
+        path = saver.getset_current_path()
+        print("path: ", path, flush=True)
+        wandb.init(project="ActiveLearning", config=g, name=path)
 
         # Train the model
-        if g['benchmark'] == 'labelled_exp':
+        if 'labelled_exp' in g['benchmark']:
             metrics = labelled_exp(saver, **g)
-        elif g['benchmark'] == 'missing_labels':
+        elif 'missing_labels' in g['benchmark']:
             metrics = missing_labels_exp(saver, **g)
         else:
             raise ValueError("Benchmark not recognized.")
@@ -192,14 +199,6 @@ if  __name__ == "__main__":
         # else:
         #     raise ValueError("Benchmark not recognized.")
 
-        # breakpoint()
-
-
-        # Create path for saving
-        path = saver.get_current_path()
-        print("path: ", path, flush=True)
-
-
         metrics.save(saver)
         
         # Produce and save plots
@@ -208,4 +207,3 @@ if  __name__ == "__main__":
         # elif config['benchmark'] == 'missing_labels':
         #     plot_missing_labels(metrics, path)
         # TODO: Implement plotting functions
-        break

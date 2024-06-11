@@ -1,5 +1,6 @@
 from sklearn.metrics import roc_auc_score, precision_recall_curve, roc_curve, average_precision_score
 import numpy as np
+import wandb
 
 
 def recall_at_5_fpr(y_true, y_probs):
@@ -33,6 +34,7 @@ class MetricStore():
             for set_ in self.sets:
                 for i in range(len(self.metrics[metric_name][set_])):
                     saver.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
+                    wandb.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
         saver.save_collated()
     
     def log(self, metrics):
