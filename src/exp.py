@@ -42,7 +42,14 @@ def labelled_exp(saver, **config):
     metrics = pretrain(model, X_train, y_train, X_test, y_test)
 
     # Save results
-    saver.log(metrics)
+    # Loop through dictionary and save each metric
+    for i in range(len(metrics['loss']['training'])):
+        saver.log({'training_loss':metrics['loss']['training'][i]})
+        saver.log({'validation_loss':metrics['loss']['validation'][i]})
+        saver.log({'training_auc':metrics['auc']['training'][i]})
+        saver.log({'validation_auc':metrics['auc']['validation'][i]})
+        saver.log({'training_acc':metrics['acc']['training'][i]})
+        saver.log({'validation_acc':metrics['acc']['validation'][i]})
     saver.save_collated()
 
     return metrics
@@ -168,3 +175,4 @@ if  __name__ == "__main__":
         # elif config['benchmark'] == 'missing_labels':
         #     plot_missing_labels(metrics, path)
         # TODO: Implement plotting functions
+        break
