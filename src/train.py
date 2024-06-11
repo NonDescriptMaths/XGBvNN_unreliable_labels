@@ -76,7 +76,7 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
             predicted = []
             # for batch_num, batch in enumerate(ds_unlabelled.iter(batch_size=10*batch_size)):
             for batch_num in range(0, len(X_unlabelled), 10*batch_size):
-                print(f"Predicting on batch {batch_num//(10*batch_size)}")
+                # print(f"Predicting on batch {batch_num//(10*batch_size)}")
                 batch = {"X": X_unlabelled[batch_num:batch_num+10*batch_size]}
                 logits = model.predict(batch['X'])
                 predicted.append(jax.nn.sigmoid(logits))
