@@ -7,6 +7,6 @@ optax
 scikit-learn
 matplotlib
 IPython
-slune-lib
+"git+https://github.com/h-0-0/slune.git#egg=slune-lib"
 scikit-activeml
 flax

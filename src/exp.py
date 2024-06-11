@@ -94,7 +94,7 @@ if  __name__ == "__main__":
     # Parse input from command line
     parser = argparse.ArgumentParser()
     parser.add_argument('--benchmark', type=str, help='Name of the benchmark to use', default="labelled_exp")
-    parser.add_argument('--model', type=str, help='Model to use', default="xgb")
+    parser.add_argument('--model', type=str, help='Model to use', default="xgboost")
     parser.add_argument('--learning_rate', type=float, help='Learning rate to use', default=0.01)
     parser.add_argument('--full_train_every', type=int, help='How often to fully train the model (in epochs)', default=10)
     parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=200)
@@ -129,16 +129,12 @@ if  __name__ == "__main__":
         'query_args': [args.query_args],
     }
 
-    to_grid ={
-        
-    }
-
-    if config['model'] == 'neural_net':
-        # to_grid['batch_size'] = [32, 64, 128]
-        # to_grid['num_epochs'] = [50, 100, 200]
-        to_grid['num_update_epochs'] = [5, 10]
-        # to_grid['MLP_shape'] = ['128,128']
-    elif config['model'] == 'xgboost':
+    if 'neural_net' in config['model']:
+        # config['batch_size'] = [32, 64, 128]
+        # config['num_epochs'] = [50, 100, 200]
+        config['num_update_epochs'] = [5, 10]
+        # config['MLP_shape'] = ['128,128']
+    elif 'xgboost' in config['model']:
         # config['learning_rate'] = [0.1, 0.01, 0.001]
         config['n_estimators'] = [100, 200]
         config['max_depth'] = [2, 4]
