@@ -192,11 +192,11 @@ if  __name__ == "__main__":
         # else:
         #     raise ValueError("Benchmark not recognized.")
 
-        breakpoint()
+        # breakpoint()
 
 
         # Create path for saving
-        path = saver.getset_current_path()
+        path = saver.get_current_path()
         print("path: ", path, flush=True)
 
 
