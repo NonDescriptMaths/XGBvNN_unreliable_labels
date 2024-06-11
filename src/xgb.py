@@ -15,21 +15,22 @@ class XGBWrapper:
             'auc': {'training': [], 'validation': []},
             'acc': {'training': [], 'validation': []}
         }
-    def update(self, X, y, eval_metric=["logloss", "error", "auc"], eval_set=None):
+    def update(self, X, y, eval_set=None):
         """ Update the model with new data."""
-        return self.model.fit(X, y, eval_metric=eval_metric, eval_set=eval_set, xgb_model=self.model)
+        return self.model.fit(X, y, eval_set=eval_set, xgb_model=self.model)
 
     def predict(self, X):
         """ Predict on the given data."""
         return self.model.predict(X)
     
-    def fit(self, X, y, eval_metric=["logloss", "error", "auc"], eval_set=None):
+    def fit(self, X, y, eval_set=None):
         """ Fit the model on the given data."""
-        return self.model.fit(X, y, eval_metric=eval_metric, eval_set=eval_set)
+        return self.model.fit(X, y, eval_set=eval_set)
     
     def get_metrics(self):
         """ Get the metrics from the model."""
         results = self.model.evals_result()
+        breakpoint()
         self.all_metrics['loss']['training'] += results['validation_0']['logloss']
         self.all_metrics['loss']['validation'] += results['validation_1']['logloss']
         self.all_metrics['auc']['training'] += results['validation_0']['auc']
@@ -62,4 +63,4 @@ class XGBWrapper:
 # Create xgb model
 def get_xgb(lr=0.1, n_estimators=100, max_depth=2):
     """ Create an XGBClassifier model with the given learning rate. """
-    return XGBWrapper(XGBClassifier(objective='binary:logistic', n_estimators=n_estimators, max_depth=max_depth, learning_rate=lr))
+    return XGBWrapper(XGBClassifier(objective='binary:logistic', n_estimators=n_estimators, max_depth=max_depth, learning_rate=lr, eval_metric=["logloss", "error", "auc", "aucpr", "pre"]))
