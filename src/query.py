@@ -32,7 +32,7 @@ def representativeness_rbf(unlabelled_data, sigma, beta):
     for i in range(n_samples):
         euclidean_dist = jnp.linalg.norm(unlabelled_data - unlabelled_data[i], axis=1)
         # Calculate rbf
-        similarities = jnp.exp(-euclidean_dist / sigma)
+        similarities = jnp.exp(euclidean_dist / sigma)
         # Calculate representativeness of sample i
         representativeness = representativeness.at[i].set(jnp.mean(similarities)**beta)
     
