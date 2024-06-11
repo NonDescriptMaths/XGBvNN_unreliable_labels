@@ -3,14 +3,14 @@ import slune
 if  __name__ == "__main__":
     to_search_info_rank = {
         'benchmark': [
-            'fully_labelled', 
+            'labelled_exp', 
             'missing_labels'
             ],
         'model': [
             'neural_net',
             'xgboost',
             ],
-        'learning_rate': [0.0001, 0.001, 0.01, 0.1],
+        'learning_rate': [0.001, 0.01],
         'full_train_every': [-1, 1, 10],
         'update_ratio': [0.1, 0.5],
     }

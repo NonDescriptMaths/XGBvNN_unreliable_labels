@@ -14,11 +14,13 @@ def pretrain(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.nda
     ds.shuffle(seed=0)
     X_train, y_train = ds['X'], ds['y']
     model.fit(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)])
-    metrics = model.get_metrics()
-    return metrics
+    
+    return model.get_metrics()
 
 # Train model
 def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarray, X_unlabelled:np.ndarray = None, y_unlabelled:np.ndarray = None, num_epochs=20, full_train_every=10, update_ratio=0.1, batch_size='max', query_method='', query_alpha=0.5, query_K=10, query_args={}):
+    if query_args == '':
+        query_args = {}
     # Separate data into labelled and unlabelled
 
     # label_idx = np.where(y != -1)[0]
@@ -41,7 +43,7 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
     if batch_size == 'max':
         batch_size = len(next_X)
 
-    all_metrics = []
+    # all_metrics = []
     for epoch in range(num_epochs):
         print(f"Epoch {epoch}")
         
@@ -61,12 +63,12 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
             
             if (epoch % full_train_every == 0) and (batch_num == 0) and (full_train_every != -1):
                 pretrain(model, X_train, y_train, X_test, y_test)
-                metric = model.get_metrics()
+                # metric = model.get_metrics()
             else: 
                 model.update(X_train, y_train, eval_metric="logloss", eval_set=[(X_train, y_train), (X_test, y_test)])
-                metric = model.get_metrics()
+                # metric = model.get_metrics()
             
-            all_metrics.append(metric)
+            # all_metrics.append(metric)
 
         # select some unlabelled data to label
         if query_method != '':
@@ -115,7 +117,7 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
 
             # breakpoint()
 
-    return all_metrics
+    return model.get_metrics()
 
 # If script is run directly, we will run a training trial
 if __name__ == '__main__':
@@ -130,10 +132,12 @@ if __name__ == '__main__':
     X_test = X_test.to_numpy()
     y_test = y_test.to_numpy()
 
-    model = get_xgb()
+    model = get_xgb(n_estimators=103)
     # Test pretraining
     results = pretrain(model, X_train, y_train, X_test, y_test)
     print(results)
+
+    breakpoint()
     # Create plots directory if it doesn't exist
     import os
     if not os.path.exists('plots'):

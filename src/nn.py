@@ -8,6 +8,7 @@ from optax import adam, sgd
 from optax.losses import sigmoid_binary_cross_entropy
 from typing import Sequence
 from sklearn.metrics import roc_auc_score, accuracy_score
+from metric import MetricStore
 
 
 losses_str2fn = {
@@ -70,7 +71,7 @@ def eval_step(state, X_batch, y_batch):
 
 
 class NNWrapper:
-    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, num_update_epochs=10, MLP_shape=[51,128,128,1]):
+    def __init__(self, lr=0.05, opt='adam', loss='cross_entropy', num_epochs=10, batch_size=512, num_update_epochs=10, MLP_shape='128,128'):
         '''
         lr: learning rate
         opt: optimizer
@@ -88,6 +89,8 @@ class NNWrapper:
         self.batch_size = batch_size
         self.num_update_epochs = num_update_epochs
 
+        MLP_shape = [51, *[int(w) for w in MLP_shape.split(',')],1]
+
         self.model = MLP(features=MLP_shape)
 
         self.params = self.model.init(jax.random.PRNGKey(0), jnp.ones((MLP_shape[0],)))
@@ -95,33 +98,36 @@ class NNWrapper:
 
         self.state = train_state.TrainState.create(apply_fn=self.model.apply, params=self.params, tx=self.opt)
 
-        self.metrics = {'loss': {'training': [], 'validation': []},
-                        'auc' : {'training': [], 'validation': []},
-                        'accuracy': {'training': [], 'validation': []},
-                        'tpr' : {'training': [], 'validation': []},}
-        
-        self.full_metrics = {'loss': {'training': [], 'validation': []},
-                             'auc' : {'training': [], 'validation': []},
-                             'accuracy': {'training': [], 'validation': []},
-                             'tpr' : {'training': [], 'validation': []},}
-        
-    def update_metrics(self, loss, logits, y, set, final_epoch=False):
-        y_pred = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
+        self.metric_store = MetricStore()
 
-        auc = roc_auc_score(y, y_pred)
-        accuracy = accuracy_score(y, y_pred)
-        tpr = y_pred[y == 1].mean()
-        
-        self.full_metrics['loss'][set].append(loss)
-        self.full_metrics['auc'][set].append(auc)
-        self.full_metrics['accuracy'][set].append(accuracy)
-        self.full_metrics['tpr'][set].append(tpr)
 
-        if final_epoch:
-            self.metrics['loss'][set].append(loss)
-            self.metrics['auc'][set].append(auc)
-            self.metrics['accuracy'][set].append(accuracy)
-            self.metrics['tpr'][set].append(tpr)
+        # self.metrics = {'loss': {'training': [], 'validation': []},
+        #                 'auc' : {'training': [], 'validation': []},
+        #                 'accuracy': {'training': [], 'validation': []},
+        #                 'tpr' : {'training': [], 'validation': []},}
+        
+        # self.full_metrics = {'loss': {'training': [], 'validation': []},
+        #                      'auc' : {'training': [], 'validation': []},
+        #                      'accuracy': {'training': [], 'validation': []},
+        #                      'tpr' : {'training': [], 'validation': []},}
+        
+    # def update_metrics(self, loss, logits, y, set, final_epoch=False):
+    #     y_pred = jnp.where(jax.nn.sigmoid(logits) > 0.5, 1, 0)
+
+    #     auc = roc_auc_score(y, y_pred)
+    #     accuracy = accuracy_score(y, y_pred)
+    #     tpr = y_pred[y == 1].mean()
+        
+    #     self.full_metrics['loss'][set].append(loss)
+    #     self.full_metrics['auc'][set].append(auc)
+    #     self.full_metrics['accuracy'][set].append(accuracy)
+    #     self.full_metrics['tpr'][set].append(tpr)
+
+    #     if final_epoch:
+    #         self.metrics['loss'][set].append(loss)
+    #         self.metrics['auc'][set].append(auc)
+    #         self.metrics['accuracy'][set].append(accuracy)
+    #         self.metrics['tpr'][set].append(tpr)
                     
 
 
@@ -158,14 +164,31 @@ class NNWrapper:
         logits = jnp.concatenate(logits_collection, axis=0)
         total_loss_val /= X.shape[0]
             
-        self.update_metrics(total_loss_val, logits, y, 'training', final_epoch=final_epoch)
+        return total_loss_val, logits
+        # self.update_metrics(total_loss_val, logits, y, 'training', final_epoch=final_epoch)
 
     def fit(self, X, y, eval_metric="logloss", eval_set=None):
         for i in range(self.num_epochs):
-            self.one_epoch(X, y, final_epoch=(i == self.num_epochs-1))
+            total_loss_val, logits = self.one_epoch(X, y, final_epoch=(i == self.num_epochs-1))
+
+        self.metric_store.log({'loss': {'training': total_loss_val}})
+        self.metric_store.calculate_metrics(y, jax.nn.sigmoid(logits), 'training')
+        
+
+        # if eval_set is not None:
+        #     self.validation(eval_metric, eval_set)
 
         if eval_set is not None:
-            self.validation(eval_metric, eval_set)
+            eval_set_names = ['training', 'validation', 'test']
+            for i, (X_val, y_val) in enumerate(eval_set):
+                if i == 0:
+                    continue
+                total_loss_val, logits = self.validation(eval_metric, (X_val, y_val))
+    
+            self.metric_store.log({'loss': {eval_set_names[i]: total_loss_val}})
+            self.metric_store.calculate_metrics(y_val, jax.nn.sigmoid(logits), eval_set_names[i])
+
+
 
     def update(self, X, y, eval_metric, eval_set):
         idx = np.random.permutation(X.shape[0])
@@ -174,16 +197,27 @@ class NNWrapper:
         y = y[idx]
 
         for i in range(self.num_update_epochs):
-            self.one_epoch(X, y, final_epoch=(i == self.num_update_epochs-1))
+            total_loss_val, logits = self.one_epoch(X, y, final_epoch=(i == self.num_update_epochs-1))
+        
+        self.metric_store.log({'loss': {'training': total_loss_val}})
+        self.metric_store.calculate_metrics(y, jax.nn.sigmoid(logits), 'training')
 
         if eval_set is not None:
-            self.validation(eval_metric, eval_set)
+            eval_set_names = ['training', 'validation', 'test']
+            for i, (X_val, y_val) in enumerate(eval_set):
+                if i == 0:
+                    continue
+                total_loss_val, logits = self.validation(eval_metric, (X_val, y_val))
+    
+            self.metric_store.log({'loss': {eval_set_names[i]: total_loss_val}})
+            self.metric_store.calculate_metrics(y_val, jax.nn.sigmoid(logits), eval_set_names[i])
+
 
     def predict(self, X_test):
         return self.model.apply(self.params, X_test)
     
     def validation(self, eval_metric, eval_set):
-        X_val, y_val = eval_set[-1]  # TODO: check why eval_set is a single tuple inside a list (to make space for validation AND test sets?)
+        X_val, y_val = eval_set
         
         logits_collection = []
         total_loss_val = 0
@@ -199,22 +233,23 @@ class NNWrapper:
         logits = jnp.concatenate(logits_collection, axis=0)
         total_loss_val /= X_val.shape[0]
 
-        self.update_metrics(total_loss_val, logits, y_val, 'validation', final_epoch=True)
+        # self.update_metrics(total_loss_val, logits, y_val, 'validation', final_epoch=True)
 
         # return log-loss if specified
         if eval_metric == 'logloss':
-            total_loss_val = jnp.log(total_loss_val)
+            total_loss_val = -jnp.log(total_loss_val)
 
-        return total_loss_val
+        return total_loss_val, logits
     
     def get_metrics(self, type='loss', set='validation'):
-        return self.metrics[type][set]
+        return self.metric_store
+    #     return self.metrics[type][set]
     
-    def get_full_metrics(self, type='loss', set='validation'):
-        return self.full_metrics[type][set]
+    # def get_full_metrics(self, type='loss', set='validation'):
+    #     return self.full_metrics[type][set]
     
-    def evals_result(self):
-        return self.get_metrics(type='loss', set='validation')
+    # def evals_result(self):
+    #     return self.get_metrics(type='loss', set='validation')
     
 if __name__ == '__main__':
     # from naive_data import naive_get_data
@@ -224,7 +259,7 @@ if __name__ == '__main__':
 
     FULL_SET = False
     FULL_SET_PROP = 0.3
-    NUM_EPOCHS = 5
+    NUM_EPOCHS = 2
     NORMALIZE_DATA = True
 
     UPDATE_RATIO = 0.1
@@ -269,6 +304,7 @@ if __name__ == '__main__':
     # Test training (involves pretraining as well)
     results = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=NUM_EPOCHS, update_ratio=UPDATE_RATIO, query_method=QUERY_METHOD, query_alpha=QUERY_ALPHA, query_K=QUERY_K)
     # print(results)
+    breakpoint()
 
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots(1, 4, figsize=(20, 5))
