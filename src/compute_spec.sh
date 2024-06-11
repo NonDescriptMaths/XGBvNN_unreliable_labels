@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=1                  # Number of CPU cores per task
 #SBATCH --gres=gpu:1                       # Define number of GPUs per node, can also define type of GPU eg. gpu:tesla, gpu:k80, gpu:p100, gpu:v100
 #SBATCH --mem-per-gpu=5G                   # Define memory per GPU
-#SBATCH --time=10:00:00                    # Wall time (hh:mm:ss)
+#SBATCH --time=5:00:00                    # Wall time (hh:mm:ss)
 
 # Define executable
 export EXE=/bin/hostname
