@@ -179,8 +179,11 @@ if  __name__ == "__main__":
     for g in grid:
         print("Current params: ", g)
         saver = slune.get_csv_saver(root_dir='results', params=g)
-        path = saver.getset_current_path()
+        path = saver.get_current_path()
         print("path: ", path, flush=True)
+
+        g = list_to_dict(g)
+
         wandb.init(project="ActiveLearning", config=g, name=path)
 
         # Train the model
