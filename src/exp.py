@@ -6,20 +6,21 @@ from xgb import get_xgb
 from nn import get_nn
 from utils import get_data, get_X_y_labelled, check_preprocessed, get_X_y_unlabelled
 from numpy import float32
+import wandb
 
 # If running labelled_exp
 def labelled_exp(saver, **config):
     check_preprocessed()
     # Get and prepare the data
-    train_data, test_data, validate_data = get_data(normalize_data=config['model'] == 'neural_net')
+    train_data, test_data, validate_data = get_data(normalize_data=True)
     X_train, y_train = get_X_y_labelled(train_data)
     # X_val, y_val = get_X_y_labelled(validate_data) Not currently using validation data
     X_test, y_test = get_X_y_labelled(test_data)
 
-    X_train = X_train.to_numpy()
-    y_train = y_train.to_numpy()
-    X_test = X_test.to_numpy()
-    y_test = y_test.to_numpy()
+    X_train = X_train.to_numpy().astype(float32)
+    y_train = y_train.to_numpy().astype(float32)
+    X_test = X_test.to_numpy().astype(float32)
+    y_test = y_test.to_numpy().astype(float32)
 
     # Get the model
     if config['model'] == 'xgboost':
@@ -30,8 +31,8 @@ def labelled_exp(saver, **config):
             opt=config['opt'], 
             loss=config['loss'], 
             num_epochs=config['num_epochs'], 
-            batch_size=config['batch_size'],
-            update_ratio=config['update_ratio'],
+            # batch_size=config['batch_size'],
+            # update_ratio=config['update_ratio'],
             num_update_epochs=config['num_update_epochs'],
             MLP_shape=config['MLP_shape'],
             )
@@ -43,14 +44,14 @@ def labelled_exp(saver, **config):
 
     # Save results
     # Loop through dictionary and save each metric
-    for i in range(len(metrics['loss']['training'])):
-        saver.log({'training_loss':metrics['loss']['training'][i]})
-        saver.log({'validation_loss':metrics['loss']['validation'][i]})
-        saver.log({'training_auc':metrics['auc']['training'][i]})
-        saver.log({'validation_auc':metrics['auc']['validation'][i]})
-        saver.log({'training_acc':metrics['acc']['training'][i]})
-        saver.log({'validation_acc':metrics['acc']['validation'][i]})
-    saver.save_collated()
+    # for i in range(len(metrics['loss']['training'])):
+    #     saver.log({'training_loss':metrics['loss']['training'][i]})
+    #     saver.log({'validation_loss':metrics['loss']['validation'][i]})
+    #     saver.log({'training_auc':metrics['auc']['training'][i]})
+    #     saver.log({'validation_auc':metrics['auc']['validation'][i]})
+    #     saver.log({'training_acc':metrics['acc']['training'][i]})
+    #     saver.log({'validation_acc':metrics['acc']['validation'][i]})
+    # saver.save_collated()
 
     return metrics
 
@@ -58,7 +59,7 @@ def labelled_exp(saver, **config):
 def missing_labels_exp(saver, **config):
     check_preprocessed()
     # Get and prepare the data
-    train_data, test_data, validate_data = get_data(normalize_data=config['model'] == 'neural_net')
+    train_data, test_data, validate_data = get_data(normalize_data=True)
     X, y = get_X_y_labelled(train_data)
     X_test, y_test = get_X_y_labelled(test_data)
 
@@ -80,8 +81,8 @@ def missing_labels_exp(saver, **config):
             opt=config['opt'], 
             loss=config['loss'], 
             num_epochs=config['num_epochs'], 
-            batch_size=config['batch_size'],
-            update_ratio=config['update_ratio'],
+            # batch_size=config['batch_size'],
+            # update_ratio=config['update_ratio'],
             num_update_epochs=config['num_update_epochs'],
             MLP_shape=config['MLP_shape'],
             )
@@ -91,11 +92,27 @@ def missing_labels_exp(saver, **config):
     # Train the model
     metrics = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=config['num_epochs'], update_ratio=config['update_ratio'], query_method=config['query_method'], query_alpha=config['query_alpha'], query_K=config['query_K'], query_args=config['query_args'])
 
-    # Save results
-    saver.log(metrics)
-    saver.save_collated()
+    # # Save results
+    # saver.log(metrics)
+    # saver.save_collated()
 
     return metrics
+
+def list_to_dict(g):
+    def split_at_equals(s):
+        return s.split('=')
+    
+    def maybe_convert_to_numeric(s):
+        try:
+            if '.' in s:
+                return float(s)
+            else:
+                return int(s)
+        except:
+            return s
+    
+    return {str(split_at_equals(s)[0][2:]): maybe_convert_to_numeric(split_at_equals(s)[1]) for s in g}
+
 # Following will be run on the cluster as a job, after being queued by run.py
 if  __name__ == "__main__":
     # Parse input from command line
@@ -147,27 +164,45 @@ if  __name__ == "__main__":
         config['max_depth'] = [2, 4]
 
     if config['benchmark'] != 'labelled_exp':
-        config['query_method'] = ['entropy', 'random', 'margin']#, 'centropy', 'entrepRE', 'entrepRBF'] # maybe ignore last 2, or 3?
+        config['query_method'] = ['entropy', 'random', 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
         config['query_K'] = [10, 50]
-        config['query_alpha'] = [0, 0.5, 0.75]
+        config['query_alpha'] = [0, 0.5, 1]
     
 
     print("Searching Over: ", config, flush=True)
     grid = slune.searchers.SearcherGrid(config)
+    # Get wandb API key, in 'wandb_api_key.txt'
+    with open('wandb_api_key.txt', 'r') as f:
+        wandb_api_key = f.read()
+    os.environ['WANDB_API_KEY'] = wandb_api_key
     # grid.check_existing_runs(slune.get_csv_saver(root_dir='results'))
     for g in grid:
         print("Current params: ", g)
         saver = slune.get_csv_saver(root_dir='results', params=g)
+        path = saver.get_current_path()
+        print("path: ", path, flush=True)
+
+        g = list_to_dict(g)
+
+        wandb.init(project="ActiveLearning", config=g, name=path)
+
         # Train the model
-        if g['benchmark'] == 'labelled_exp':
+        if 'labelled_exp' in g['benchmark']:
             metrics = labelled_exp(saver, **g)
-        elif config['benchmark'] == 'missing_labels':
+        elif 'missing_labels' in g['benchmark']:
             metrics = missing_labels_exp(saver, **g)
         else:
             raise ValueError("Benchmark not recognized.")
-        # Create path for saving
-        path = saver.getset_current_path()
-        print("path: ", path, flush=True)
+
+        # print(g[0][12:])
+        # if g[0][12:] == 'labelled_exp':
+        #     metrics = labelled_exp(saver, **g)
+        # elif g[0][12:] == 'missing_labels':
+        #     metrics = missing_labels_exp(saver, **g)
+        # else:
+        #     raise ValueError("Benchmark not recognized.")
+
+        metrics.save(saver)
         
         # Produce and save plots
         # if config['benchmark'] == 'labelled_exp':
@@ -175,4 +210,3 @@ if  __name__ == "__main__":
         # elif config['benchmark'] == 'missing_labels':
         #     plot_missing_labels(metrics, path)
         # TODO: Implement plotting functions
-        break
