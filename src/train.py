@@ -65,7 +65,7 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
                 pretrain(model, X_train, y_train, X_test, y_test)
                 # metric = model.get_metrics()
             else: 
-                model.update(X_train, y_train, eval_metric="logloss", eval_set=[(X_train, y_train), (X_test, y_test)])
+                model.update(X_train, y_train, eval_set=[(X_train, y_train), (X_test, y_test)])
                 # metric = model.get_metrics()
             
             # all_metrics.append(metric)
@@ -78,8 +78,13 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
             for batch_num in range(0, len(X_unlabelled), 10*batch_size):
                 # print(f"Predicting on batch {batch_num//(10*batch_size)}")
                 batch = {"X": X_unlabelled[batch_num:batch_num+10*batch_size]}
-                logits = model.predict(batch['X'])
-                predicted.append(jax.nn.sigmoid(logits))
+
+                if model.__class__.__name__ == "XGBWrapper":
+                    logits = model.model.predict_proba(batch['X'])
+                else:
+                    logits = jax.nn.sigmoid(model.predict(batch['X']))
+                
+                predicted.append(logits)
 
             predicted = jnp.concatenate(predicted)
             
@@ -117,7 +122,7 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
 
             # breakpoint()
 
-    return model.get_metrics()
+    return model.get_metrics(log_final=False)
 
 # If script is run directly, we will run a training trial
 if __name__ == '__main__':

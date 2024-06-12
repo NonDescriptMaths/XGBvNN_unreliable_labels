@@ -30,11 +30,27 @@ class MetricStore():
 
     def save(self, saver):
         '''Save the metrics to the slune saver object'''
-        for metric_name in self.metric_names:
-            for set_ in self.sets:
-                for i in range(len(self.metrics[metric_name][set_])):
-                    saver.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
-                    wandb.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
+        # dict_to_log = {}
+
+        for i in range(len(self.metrics['loss']['training'])):
+            dict_to_log = {}
+            for metric_name in self.metric_names:
+                for set_ in self.sets:
+                    dict_to_log[f'{set_}_{metric_name}'] = self.metrics[metric_name][set_][i]
+            
+            saver.log(dict_to_log)
+            wandb.log(dict_to_log)
+        # for metric_name in self.metric_names:
+            # for set_ in self.sets:
+                # dict_to_log[f'{set_}_{metric_name}'] = self.metrics[metric_name][set_]
+                
+                # for i in range(len(self.metrics[metric_name][set_])):
+                    # saver.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
+                    # wandb.log({f'{set_}_{metric_name}': self.metrics[metric_name][set_][i]})
+        
+        # saver.log(dict_to_log)
+        # wandb.log(dict_to_log)
+        
         saver.save_collated()
     
     def log(self, metrics):

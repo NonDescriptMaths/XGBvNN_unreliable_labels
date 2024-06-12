@@ -121,7 +121,7 @@ if  __name__ == "__main__":
     parser.add_argument('--model', type=str, help='Model to use', default="xgboost")
     parser.add_argument('--learning_rate', type=float, help='Learning rate to use', default=0.01)
     parser.add_argument('--full_train_every', type=int, help='How often to fully train the model (in epochs)', default=10)
-    parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=200)
+    parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=35)#200)
     parser.add_argument('--update_ratio', type=float, help='Ratio of old:new data to train on in an active learning iteration', default=0.1)
     parser.add_argument('--batch_size', type=str, help='Batch size to use', default='max')
     parser.add_argument('--opt', type=str, help='Optimizer to use', default="adam")
@@ -156,17 +156,21 @@ if  __name__ == "__main__":
     if 'neural_net' in config['model']:
         # config['batch_size'] = [32, 64, 128]
         # config['num_epochs'] = [50, 100, 200]
-        config['num_update_epochs'] = [5, 10]
+        config['num_update_epochs'] = [25]#[5, 10]
         # config['MLP_shape'] = ['128,128']
     elif 'xgboost' in config['model']:
         # config['learning_rate'] = [0.1, 0.01, 0.001]
         config['n_estimators'] = [100, 200]
         config['max_depth'] = [2, 4]
 
-    if config['benchmark'] != 'labelled_exp':
-        config['query_method'] = ['entropy', 'random', 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
-        config['query_K'] = [10, 50]
-        config['query_alpha'] = [0, 0.5, 1]
+    if 'labelled_exp' not in config['benchmark']:
+
+        config['full_train_every'] = [10]#[-1, 1, 10]
+        config['update_ratio'] = [0.5]#[0.1, 0.5]
+
+        config['query_method'] = ['entropy']#, 'random', 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
+        config['query_K'] = [100]#[10, 50]
+        config['query_alpha'] = [0.5]#[0, 0.5, 1]
     
 
     print("Searching Over: ", config, flush=True)
@@ -184,7 +188,7 @@ if  __name__ == "__main__":
 
         g = list_to_dict(g)
 
-        wandb.init(project="ActiveLearning", config=g, name=path)
+        wandb.init(entity='sambowyer_', project="ActiveLearning", config=g, name=path)
 
         # Train the model
         if 'labelled_exp' in g['benchmark']:
@@ -203,6 +207,7 @@ if  __name__ == "__main__":
         #     raise ValueError("Benchmark not recognized.")
 
         metrics.save(saver)
+        wandb.finish()
         
         # Produce and save plots
         # if config['benchmark'] == 'labelled_exp':

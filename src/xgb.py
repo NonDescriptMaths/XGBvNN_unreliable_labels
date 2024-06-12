@@ -22,7 +22,9 @@ class XGBWrapper:
 
     def update(self, X, y, eval_set=None):
         """ Update the model with new data."""
-        updated_model = self.model.fit(X, y, eval_set=eval_set, xgb_model=self.model)
+        self.logged_loss = False
+
+        updated_model = self.model.fit(X, y, eval_set=eval_set, xgb_model=self.model, verbose=False)
 
         eval_set_names = ['training', 'validation', 'test']
 
@@ -32,6 +34,7 @@ class XGBWrapper:
 
                 self.metric_store.calculate_metrics(eval_y, y_probs, eval_set_names[i])
 
+        self.get_metrics()
         return updated_model
 
     def predict(self, X):
@@ -40,7 +43,9 @@ class XGBWrapper:
     
     def fit(self, X, y, eval_set=None):
         """ Fit the model on the given data."""
-        fitted_model = self.model.fit(X, y, eval_set=eval_set)
+        self.logged_loss = False
+
+        fitted_model = self.model.fit(X, y, eval_set=eval_set, verbose=False)
 
         eval_set_names = ['training', 'validation', 'test']
 
@@ -50,15 +55,23 @@ class XGBWrapper:
 
                 self.metric_store.calculate_metrics(eval_y, y_probs, eval_set_names[i])
 
+            # self.get_metrics()
         return fitted_model
     
-    def get_metrics(self, eval_set=None):
+    def get_metrics(self, eval_set=None, log_final=True):
         """ Get the metrics from the model."""
-        if not self.logged_loss:
+        if not self.logged_loss or log_final:
             results = self.model.evals_result()
 
-            self.metric_store.log({'loss': {'training':   np.log(np.mean(np.exp(results['validation_0']['logloss'][0]))), 
-                                            'validation': np.log(np.mean(np.exp(results['validation_1']['logloss'][0])))}})
+            # self.metric_store.log({'loss': {'training':   np.log(np.mean(np.exp(results['validation_0']['logloss'][0]))), 
+            #                                 'validation': np.log(np.mean(np.exp(results['validation_1']['logloss'][0])))}})
+            # self.metric_store.log({'loss': {'training':   results['validation_0']['logloss'], 
+            #                                 'validation': results['validation_1']['logloss']}})
+            
+            self.metric_store.log({'loss': {'training':   results['validation_0']['logloss'][-1], 
+                                            'validation': results['validation_1']['logloss'][-1]}})
+            
+            self.logged_loss = True
 
         return self.metric_store
 

@@ -167,7 +167,7 @@ class NNWrapper:
         return total_loss_val, logits
         # self.update_metrics(total_loss_val, logits, y, 'training', final_epoch=final_epoch)
 
-    def fit(self, X, y, eval_metric="logloss", eval_set=None):
+    def fit(self, X, y, eval_set=None):
         for i in range(self.num_epochs):
             total_loss_val, logits = self.one_epoch(X, y, final_epoch=(i == self.num_epochs-1))
 
@@ -183,14 +183,14 @@ class NNWrapper:
             for i, (X_val, y_val) in enumerate(eval_set):
                 if i == 0:
                     continue
-                total_loss_val, logits = self.validation(eval_metric, (X_val, y_val))
+                total_loss_val, logits = self.validation((X_val, y_val))
     
             self.metric_store.log({'loss': {eval_set_names[i]: total_loss_val}})
             self.metric_store.calculate_metrics(y_val, jax.nn.sigmoid(logits), eval_set_names[i])
 
 
 
-    def update(self, X, y, eval_metric, eval_set):
+    def update(self, X, y, eval_set):
         idx = np.random.permutation(X.shape[0])
 
         X = X[idx, ...]
@@ -207,7 +207,7 @@ class NNWrapper:
             for i, (X_val, y_val) in enumerate(eval_set):
                 if i == 0:
                     continue
-                total_loss_val, logits = self.validation(eval_metric, (X_val, y_val))
+                total_loss_val, logits = self.validation((X_val, y_val))
     
             self.metric_store.log({'loss': {eval_set_names[i]: total_loss_val}})
             self.metric_store.calculate_metrics(y_val, jax.nn.sigmoid(logits), eval_set_names[i])
@@ -216,7 +216,7 @@ class NNWrapper:
     def predict(self, X_test):
         return self.model.apply(self.params, X_test)
     
-    def validation(self, eval_metric, eval_set):
+    def validation(self, eval_set):
         X_val, y_val = eval_set
         
         logits_collection = []
@@ -236,12 +236,12 @@ class NNWrapper:
         # self.update_metrics(total_loss_val, logits, y_val, 'validation', final_epoch=True)
 
         # return log-loss if specified
-        if eval_metric == 'logloss':
-            total_loss_val = -jnp.log(total_loss_val)
+        # if eval_metric == 'logloss':
+        total_loss_val = -jnp.log(total_loss_val)
 
         return total_loss_val, logits
     
-    def get_metrics(self, type='loss', set='validation'):
+    def get_metrics(self, type='loss', set='validation', log_final=False):
         return self.metric_store
     #     return self.metrics[type][set]
     
