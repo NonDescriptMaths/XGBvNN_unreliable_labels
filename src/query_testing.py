@@ -27,7 +27,7 @@ predicted_data = predict(X)
 # Replace the model's predict method with our custom one
 
 
-selected_indices = query.sampler(predicted_data, K= 30, alpha = 0.3, method = 'entrepRBF')
+selected_indices = query.sampler(predicted_data, K= 50, alpha = 0, method = 'entrepRE',RE_beta= 0)
 
 print(selected_indices)
 # Get the selected samples

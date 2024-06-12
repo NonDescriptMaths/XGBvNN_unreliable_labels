@@ -213,7 +213,7 @@ def sampler(predicted_data,
     if method == 'entrepRE':
         repres_data = representativeness_re(predicted_data[:,0:-1], beta=RE_beta)
     elif method == 'entrepRBF':
-        repres_data = representativeness_rbf(predicted_data[:,0:-1], sigma=RBF_sigma, bRBF_beta=1)
+        repres_data = representativeness_rbf(predicted_data[:,0:-1], sigma=RBF_sigma, RBF_beta=1)
     
 
     if method == 'entropy':
