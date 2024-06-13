@@ -25,3 +25,5 @@ venv/
 /src/__pycache__
 /src/wandb/
 src/wandb_api_key.txt
+
+*.out

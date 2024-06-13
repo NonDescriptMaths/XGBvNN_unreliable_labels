@@ -91,7 +91,7 @@ def missing_labels_exp(saver, **config):
         raise ValueError("Model not recognized.")
     
     # Train the model
-    metrics = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=config['num_epochs'], update_ratio=config['update_ratio'], query_method=config['query_method'], query_alpha=config['query_alpha'], query_K=config['query_K'], query_args=config['query_args'])
+    metrics = train(model, X, y, X_test, y_test, X_unlabelled=X_unlabelled, y_unlabelled=y_unlabelled, num_epochs=config['num_epochs'], full_train_every=config['full_train_every'], update_ratio=config['update_ratio'], query_method=config['query_method'], query_alpha=config['query_alpha'], query_K=config['query_K'], query_args=config['query_args'])
 
     # # Save results
     # saver.log(metrics)
@@ -168,7 +168,7 @@ if  __name__ == "__main__":
 
     if 'labelled_exp' not in config['benchmark']:
 
-        config['full_train_every'] = [-1, 10]#,1
+        # config['full_train_every'] = [-1, 10]#,1
         config['update_ratio'] = [0.1, 0.5]
 
         config['query_method'] = ['entropy', 'random']#, 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
