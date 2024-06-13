@@ -14,7 +14,7 @@ metric_name2func = {
     'tn': lambda y_true, y_probs: sum((y_true == 0) & (y_probs < 0.5)),
     'fp': lambda y_true, y_probs: sum((y_true == 0) & (y_probs >= 0.5)),
     'fn': lambda y_true, y_probs: sum((y_true == 1) & (y_probs < 0.5)),
-    'auc': roc_auc_score,
+    'auc': lambda y_true, y_probs: roc_auc_score(y_true, y_probs) if len(np.unique(y_true)) > 1 else 0,
     'aucpr': average_precision_score,
     'rec@5fpr': recall_at_5_fpr,
 }

@@ -163,7 +163,7 @@ class NNWrapper:
 
         logits = jnp.concatenate(logits_collection, axis=0)
         total_loss_val /= X.shape[0]
-            
+
         return total_loss_val, logits
         # self.update_metrics(total_loss_val, logits, y, 'training', final_epoch=final_epoch)
 

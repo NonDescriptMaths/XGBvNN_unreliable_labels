@@ -48,6 +48,10 @@ def train(model, X:np.ndarray, y:np.ndarray, X_test:np.ndarray, y_test:np.ndarra
         print(f"Epoch {epoch}")
         
         # ds.shuffle(seed=epoch)
+
+        if (epoch % full_train_every == 0) and (full_train_every != -1):
+            next_X = X
+            next_y = y
         
         #shuffle X and y
         perm = np.random.permutation(len(next_X))

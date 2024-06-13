@@ -44,6 +44,7 @@ def representativeness_re(unlabelled_data, beta):
     '''
     
     scaler = StandardScaler()
+    breakpoint()
     unlabelled_data = scaler.fit_transform(unlabelled_data)
     
     n_samples = unlabelled_data.shape[0]
@@ -133,7 +134,7 @@ def random(K, predicted_data, labelled_data=None):
     labelled_data: currently labelled data (may not be used)
     '''
     key = jax.random.PRNGKey(0)  
-    return jax.random.choice(key, len(predicted_data), K, replace=False)
+    return jax.random.choice(key, len(predicted_data), (K,), replace=False)
 
 def entrepRE(K,predicted_data,labelled_data = None,repres_data = []):
     '''
@@ -208,6 +209,7 @@ def sampler(predicted_data,
     # get the indices of non-fraud cases for the sample
     non_fraud_indices = jnp.where(predicted_data[:,-1] <= threshold_for_fraud)
     non_fraud_data = predicted_data[non_fraud_indices]
+
 
     #Generate similarity data
     if method == 'entrepRE':

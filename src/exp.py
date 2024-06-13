@@ -118,6 +118,7 @@ def list_to_dict(g):
 if  __name__ == "__main__":
     # Parse input from command line
     parser = argparse.ArgumentParser()
+    parser.add_argument('--run', type=str, help='Name of the run', default="final")
     parser.add_argument('--benchmark', type=str, help='Name of the benchmark to use', default="labelled_exp")
     parser.add_argument('--model', type=str, help='Model to use', default="xgboost")
     parser.add_argument('--learning_rate', type=float, help='Learning rate to use', default=0.01)
@@ -137,6 +138,7 @@ if  __name__ == "__main__":
     args = parser.parse_args()
 
     config = {
+        'run': [args.run],
         'benchmark': [args.benchmark],
         'model': [args.model],
         'learning_rate': [args.learning_rate],
@@ -169,7 +171,7 @@ if  __name__ == "__main__":
         config['full_train_every'] = [-1, 10]#,1
         config['update_ratio'] = [0.1, 0.5]
 
-        config['query_method'] = ['entropy', 'random', 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
+        config['query_method'] = ['entropy', 'random']#, 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
         config['query_K'] = [10, 100]
         # config['query_alpha'] = [0.5]#[0, 0.5]#, 1]
     
@@ -192,23 +194,35 @@ if  __name__ == "__main__":
 
         wandb.init(entity='sambowyer_', project="ActiveLearning", config=g, name=path)
 
-        # Train the model
-        if 'labelled_exp' in g['benchmark']:
-            metrics = labelled_exp(saver, **g)
-        elif 'missing_labels' in g['benchmark']:
-            metrics = missing_labels_exp(saver, **g)
-        else:
-            raise ValueError("Benchmark not recognized.")
+        try:
+            # Train the model
+            if 'labelled_exp' in g['benchmark']:
+                metrics = labelled_exp(saver, **g)
+            elif 'missing_labels' in g['benchmark']:
+                metrics = missing_labels_exp(saver, **g)
+            else:
+                raise ValueError("Benchmark not recognized.")
 
-        # print(g[0][12:])
-        # if g[0][12:] == 'labelled_exp':
-        #     metrics = labelled_exp(saver, **g)
-        # elif g[0][12:] == 'missing_labels':
-        #     metrics = missing_labels_exp(saver, **g)
-        # else:
-        #     raise ValueError("Benchmark not recognized.")
+            # print(g[0][12:])
+            # if g[0][12:] == 'labelled_exp':
+            #     metrics = labelled_exp(saver, **g)
+            # elif g[0][12:] == 'missing_labels':
+            #     metrics = missing_labels_exp(saver, **g)
+            # else:
+            #     raise ValueError("Benchmark not recognized.")
 
-        metrics.save(saver)
+            metrics.save(saver)
+
+            end_time = time.time()
+            with open('finished.txt', 'a') as f:
+                f.write(f"{end_time-start_time}s for {path}.\n")
+
+        except Exception as e:
+            print(f"FAIL for {path}.\n {e}")
+            end_time = time.time()
+            with open('finished.txt', 'a') as f:
+                f.write(f"FAIL ({end_time-start_time}s) for {path}. {e}\n")
+
         wandb.finish()
         
         # Produce and save plots
@@ -217,7 +231,3 @@ if  __name__ == "__main__":
         # elif config['benchmark'] == 'missing_labels':
         #     plot_missing_labels(metrics, path)
         # TODO: Implement plotting functions
-
-        end_time = time.time()
-        with open('finished.txt', 'a') as f:
-            f.write(f"{end_time-start_time}s for {path}.\n")

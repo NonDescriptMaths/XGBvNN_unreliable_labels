@@ -2,8 +2,9 @@ import slune
 
 if  __name__ == "__main__":
     to_search_info_rank = {
+        'run': ['final'],
         'benchmark': [
-            'labelled_exp', 
+            # 'labelled_exp', 
             'missing_labels'
             ],
         'model': [
