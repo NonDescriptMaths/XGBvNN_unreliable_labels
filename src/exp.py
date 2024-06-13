@@ -123,7 +123,7 @@ if  __name__ == "__main__":
     parser.add_argument('--model', type=str, help='Model to use', default="xgboost")
     parser.add_argument('--learning_rate', type=float, help='Learning rate to use', default=0.01)
     parser.add_argument('--full_train_every', type=int, help='How often to fully train the model (in epochs)', default=10)
-    parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=100)#200)
+    parser.add_argument('--num_epochs', type=int, help='Number of epochs to train for', default=50)#200)
     parser.add_argument('--update_ratio', type=float, help='Ratio of old:new data to train on in an active learning iteration', default=0.1)
     parser.add_argument('--batch_size', type=str, help='Batch size to use', default='max')
     parser.add_argument('--opt', type=str, help='Optimizer to use', default="adam")
