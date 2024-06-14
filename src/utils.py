@@ -2,10 +2,11 @@ import pandas as pd
 from clean_data import normalize
 import os
 
-def get_data(normalize_data=False):
-    train = pd.read_csv('../data/train.csv')
-    test = pd.read_csv('../data/test.csv')
-    validate = pd.read_csv('../data/validate.csv')
+def get_data(normalize_data=False, harry=False):
+    harry_str = '/harry' if harry else ''
+    train = pd.read_csv(f'../data{harry_str}/train.csv')
+    test = pd.read_csv(f'../data{harry_str}/test.csv')
+    validate = pd.read_csv(f'../data{harry_str}/validate.csv')
     
     if normalize_data:
         train = normalize(train)

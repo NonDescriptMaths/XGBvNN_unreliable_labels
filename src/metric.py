@@ -32,6 +32,7 @@ class MetricStore():
         '''Save the metrics to the slune saver object'''
         # dict_to_log = {}
 
+        # for _ in range(100):
         for i in range(len(self.metrics['loss']['training'])):
             dict_to_log = {}
             for metric_name in self.metric_names:

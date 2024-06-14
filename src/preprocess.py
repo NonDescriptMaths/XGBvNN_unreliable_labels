@@ -22,9 +22,9 @@ def train_test_split(
     )
 
     # Save the data to csv files
-    train.to_csv("../data/train.csv", index=False)
-    validate.to_csv("../data/validate.csv", index=False)
-    test.to_csv("../data/test.csv", index=False)
+    train.to_csv("../data/harry/train.csv", index=False)
+    validate.to_csv("../data/harry/validate.csv", index=False)
+    test.to_csv("../data/harry/test.csv", index=False)
 
 
 def preprocess_data(df, log_scaling=True, drop_highly_correlated_features=True):

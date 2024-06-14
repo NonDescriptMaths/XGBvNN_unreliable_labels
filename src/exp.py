@@ -9,11 +9,13 @@ from numpy import float32
 import wandb
 import time
 
+use_harrys_data = True
+
 # If running labelled_exp
 def labelled_exp(saver, **config):
     check_preprocessed()
     # Get and prepare the data
-    train_data, test_data, validate_data = get_data(normalize_data=True)
+    train_data, test_data, validate_data = get_data(normalize_data=True, harry=use_harrys_data)
     X_train, y_train = get_X_y_labelled(train_data)
     # X_val, y_val = get_X_y_labelled(validate_data) Not currently using validation data
     X_test, y_test = get_X_y_labelled(test_data)
@@ -60,7 +62,7 @@ def labelled_exp(saver, **config):
 def missing_labels_exp(saver, **config):
     check_preprocessed()
     # Get and prepare the data
-    train_data, test_data, validate_data = get_data(normalize_data=True)
+    train_data, test_data, validate_data = get_data(normalize_data=True, harry=use_harrys_data)
     X, y = get_X_y_labelled(train_data)
     X_test, y_test = get_X_y_labelled(test_data)
 
@@ -168,11 +170,11 @@ if  __name__ == "__main__":
 
     if 'labelled_exp' not in config['benchmark']:
 
-        # config['full_train_every'] = [-1, 10]#,1
-        config['update_ratio'] = [0.1, 0.5]
+        config['full_train_every'] = [1]#[-1, 10]#,1
+        config['update_ratio'] = [0.1]#, 0.5]
 
         config['query_method'] = ['entropy', 'random']#, 'entrepRE']#, 'margin', 'entrepRBF'] # maybe ignore last 2, or 3?
-        config['query_K'] = [10, 100]
+        config['query_K'] = [100]#, 100]
         # config['query_alpha'] = [0.5]#[0, 0.5]#, 1]
     
 
